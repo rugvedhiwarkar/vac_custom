@@ -9,11 +9,6 @@ app_description = (
 app_email = "rugvedhiwarkar@gmail.com"
 app_license = "mit"
 
-# FinScope/LedgerX report enhancements. Loaded on every desk page; features
-# activate ONLY on the "LedgerX - *" Custom Report copies (allowlist inside
-# the JS) — standard reports stay untouched.
-app_include_js = "/assets/vac_custom/js/finscope.js"
-
 # ---------------------------------------------------------------------------
 # Fixtures — the reproducible "recipe" for our customizations.
 # Exported/imported as JSON under vac_custom/fixtures/ and applied on
