@@ -8,8 +8,11 @@
  *   bench --site <site> set-config vac_theme_enabled 1
  *
  * Strategy: Frappe v16 (Espresso) derives its whole desk UI from a neutral
- * --gray-50..900 ramp plus surface-*/ink-*/outline-* families and a handful of
- * semantic tokens. We replace the neutral ramp with a warm "stone" ramp and
+ * --gray-50..900 ramp plus the surface / ink / outline families and a handful
+ * of semantic tokens. (NB: a star followed by a slash anywhere in a comment
+ * ends it early and CSS error-recovery then eats the next rule — that bug
+ * once cost this file its entire light block.)
+ * We replace the neutral ramp with a warm "stone" ramp and
  * re-point the accent tokens at terracotta; everything else follows. Status
  * colours (red/green/amber/blue indicators, alerts) are left untouched.
  */
