@@ -93,6 +93,8 @@ fixtures = [
                     "Journal Entry-busy_voucher_ref",
                     "Payment Entry-busy_voucher_no",
                     "Payment Entry-busy_voucher_ref",
+                    "Payment Entry-cd_scheme",
+                    "Journal Entry-cd_scheme",
                 ],
             ]
         },
