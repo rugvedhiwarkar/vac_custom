@@ -37,7 +37,12 @@ app_include_js = [
     "/assets/agriops_suite/js/vac_theme.js",
     "/assets/agriops_suite/js/core_fixes.js",
 ]
-app_include_css = ["/assets/agriops_suite/css/vac_theme.css"]
+app_include_css = [
+    "/assets/agriops_suite/css/vac_theme.css",
+    # CSS sibling of core_fixes.js — upstream v16 workarounds (see file
+    # header; new rules need a NEW file, /assets is proxy-cached immutable)
+    "/assets/agriops_suite/css/core_fixes.css",
+]
 
 # copies the per-site vac_theme_enabled flag into desk boot info
 extend_bootinfo = "agriops_suite.boot.extend_bootinfo"
@@ -84,8 +89,10 @@ fixtures = [
                     "CD Scheme",
                     "CD Slab",
                     "VAC Party",
-                    "Credit Recovery",
-                    "Credit Recovery Follow-up",
+                    # goal-12 rebrand: ex "Credit Recovery" (+ child); the
+                    # workspace owns the plain "LedgerLift" name
+                    "LedgerLift Tracker",
+                    "LedgerLift Follow-up",
                 ],
             ]
         },
@@ -140,9 +147,13 @@ fixtures = [
             "name": [
                 "in",
                 [
-                    "Credit Recovery-Form",
-                    "Credit Recovery-List",
+                    "LedgerLift-Form",
+                    "LedgerLift-List",
                     "Item Product Detail Molecule Fetch",
+                    # party-tools counterpart buttons (fixture-ized post-
+                    # rename as tracked; call agriops_suite.party.*)
+                    "VAC Party Counterpart - Customer",
+                    "VAC Party Counterpart - Supplier",
                 ],
             ]
         },
@@ -155,11 +166,11 @@ fixtures = [
             "name": [
                 "in",
                 [
-                    "Credit Recovery Validate",
-                    "Credit Recovery Daily Refresh",
-                    "Credit Recovery Fetch Balance",
-                    "Credit Recovery Avg Days",
-                    "Credit Recovery Due Followups",
+                    "LedgerLift Validate",
+                    "LedgerLift Daily Refresh",
+                    "LedgerLift Fetch Balance",
+                    "LedgerLift Avg Days",
+                    "LedgerLift Due Followups",
                 ],
             ]
         },
@@ -185,15 +196,20 @@ fixtures = [
     {
         "dt": "Dashboard Chart",
         "filters": {
-            "name": ["in", ["CR Outstanding by Status", "CR Outstanding by Territory"]]
+            "name": ["in", ["LedgerLift Outstanding by Status",
+                            "LedgerLift Outstanding by Territory"]]
         },
     },
 
     # --- Our Reports (non-standard, DB-stored) ------------------------------
+    # NOTE: the FinScope - * and StockPilot * report suites stay installer-
+    # managed (custom_doctypes/), not fixtures — they iterate too fast.
     {
         "dt": "Report",
         "filters": {
-            "name": ["in", ["Credit Recovery Follow-ups", "VAC Customer Ledger Summary"]]
+            "name": ["in", ["LedgerLift Follow-ups",
+                            "LedgerLift Customer Ledger Summary",
+                            "CashControl Day Book"]]
         },
     },
 
@@ -204,26 +220,32 @@ fixtures = [
     {
         "dt": "Workspace Sidebar",
         "filters": {
-            "name": ["in", ["Credit Recovery", "SchemeWise", "Product Details"]]
+            "name": ["in", ["LedgerLift", "CashControl", "ItemIntel",
+                            "SchemeWise", "StockPilot", "FinScope"]]
         },
     },
     {
         "dt": "Desktop Icon",
         "filters": {
-            "name": ["in", ["Credit Recovery", "SchemeWise", "Product Details"]]
+            "name": ["in", ["LedgerLift", "CashControl", "ItemIntel",
+                            "SchemeWise", "StockPilot", "FinScope"]]
         },
     },
 
-    # --- Our Workspaces -----------------------------------------------------
+    # --- Our Workspaces (all six brands' nav; the suites' reports/cards
+    # stay installer-managed) ------------------------------------------------
     {
         "dt": "Workspace",
         "filters": {
             "name": [
                 "in",
                 [
-                    "Credit Recovery Dashboard",
+                    "LedgerLift",
+                    "CashControl",
+                    "ItemIntel",
                     "SchemeWise",
-                    "Product Details",
+                    "StockPilot",
+                    "FinScope",
                 ],
             ]
         },

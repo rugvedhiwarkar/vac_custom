@@ -1,0 +1,19 @@
+/* core_fixes.css — always-on workarounds for upstream ERPNext v16 bugs.
+ * CSS sibling of core_fixes.js: each rule documents the upstream defect and
+ * gets dropped when upstream ships the fix. NOT theme — do not scope these
+ * under html[data-vac-theme].
+ *
+ * NOTE: served unhashed and the Frappe Cloud proxy caches /assets as
+ * immutable — never edit this file expecting live sites to pick it up;
+ * additions arrive with a deploy, and if a rule must change mid-cycle,
+ * add a new file (new URL) instead of editing this one.
+ */
+
+/* Query-report filter dropdowns vs the sticky grid header: upstream gives
+ * .dt-cell--header (position:sticky) z-index:4 AND .awesomplete > ul
+ * z-index:4 — the tie lets the frozen header/filter cells of the datatable
+ * paint OVER any open link-filter dropdown in every query report.
+ * Seen on: StockPilot Safety Stock List Item Group filter (2026-07-10). */
+.page-form .awesomplete > ul {
+	z-index: 10;
+}
