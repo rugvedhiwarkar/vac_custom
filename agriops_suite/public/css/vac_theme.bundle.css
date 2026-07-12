@@ -357,7 +357,7 @@ html[data-vac-theme="nature"][data-theme="light"] {
 	--heading-color: #1c3f4d;
 
 	/* workspace sidebar */
-	--sidebar-hover-color: #e4ede7;
+	--sidebar-hover-color: #cddbd3;
 	--sidebar-active-color: #ffffff;
 	--sidebar-border-color: #dfe8e2;
 	--divider-color: #dfe8e2;
@@ -365,10 +365,12 @@ html[data-vac-theme="nature"][data-theme="light"] {
 	/* leaf-green accent */
 	--primary: #2f8f5b;
 	--primary-color: #2f8f5b;
-	--btn-primary: #2f8f5b;
 	--border-primary: #237046;
 	--focus-default: 0px 0px 0px 2px rgba(47, 143, 91, 0.4);
-	--date-active-bg: #2f8f5b;
+	/* button fill / selected-date darkened for a readable white label (white on
+	   #2f8f5b was 4.04:1); --primary keeps the brand leaf-green for accents */
+	--btn-primary: #26794b;
+	--date-active-bg: #26794b;
 	--date-active-text: #ffffff;
 	--sidebar-card-button-outline: #2f8f5b;
 	--sidebar-card-button-bg-color: #e2f1e9;
@@ -423,7 +425,7 @@ html[data-vac-theme="nature"][data-theme="dark"] {
 	--ink-gray-2: #2b524c;
 	--ink-gray-3: #5f7f77;
 	--ink-gray-4: #5f7f77;
-	--ink-gray-5: #728e86;
+	--ink-gray-5: #8ba79e;
 	--ink-gray-6: #8ba79e;
 	--ink-gray-7: #a9c4bb;
 	--ink-gray-8: #cbe0d8;
@@ -438,11 +440,13 @@ html[data-vac-theme="nature"][data-theme="dark"] {
 	/* brightened leaf-green accent for the teal night */
 	--primary: #3fa878;
 	--primary-color: #3fa878;
-	--btn-primary: #3fa878;
+	/* button fill / selected-date darkened for a readable white label (white on
+	   #3fa878 was 2.96:1); --primary keeps the bright leaf-green for accents */
+	--btn-primary: #2b8555;
 	--border-primary: #63c99b;
 	--focus-default: 0px 0px 0px 2px rgba(63, 168, 120, 0.45);
 	--checkbox-gradient: linear-gradient(180deg, #3fa878 -124.51%, #3fa878 100%);
-	--date-active-bg: #3fa878;
+	--date-active-bg: #2b8555;
 	--date-active-text: #ffffff;
 	--sidebar-card-button-outline: #3fa878;
 	--sidebar-card-button-bg-color: #123a2c;
@@ -587,26 +591,39 @@ html[data-vac-theme] .print-format {
    ==================================================================== */
 html[data-vac-theme] .number-widget-box,
 html[data-vac-theme] .chart-widget-box {
+	position: relative;
 	border-radius: 14px;
-	transition: transform 0.13s ease, box-shadow 0.13s ease;
+	transition: box-shadow 0.13s ease;
 }
-html[data-vac-theme][data-theme="light"] .number-widget-box,
-html[data-vac-theme][data-theme="light"] .chart-widget-box {
+/* :not(.selected) so the resting theme border never overrides Frappe's
+   edit-mode selection outline on dashboard cards */
+html[data-vac-theme][data-theme="light"] .number-widget-box:not(.selected),
+html[data-vac-theme][data-theme="light"] .chart-widget-box:not(.selected) {
 	border: 1px solid #e4ebe7 !important;
 	box-shadow: 0 2px 8px rgba(18, 48, 59, 0.07) !important;
 }
-html[data-vac-theme][data-theme="dark"] .number-widget-box,
-html[data-vac-theme][data-theme="dark"] .chart-widget-box {
+html[data-vac-theme][data-theme="dark"] .number-widget-box:not(.selected),
+html[data-vac-theme][data-theme="dark"] .chart-widget-box:not(.selected) {
 	border: 1px solid rgba(130, 175, 160, 0.15) !important;
 	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22) !important;
 }
-html[data-vac-theme][data-theme="light"] .number-widget-box:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 12px 26px rgba(18, 48, 59, 0.12) !important;
+/* hover deepens the shadow only. A `transform` here would establish a stacking
+   context on the card, letting a neighbouring card clip/cover this card's open
+   "..." menu (the reported bug). No transform + raise the card that owns an open
+   menu above its siblings so the menu always floats over neighbours. */
+html[data-vac-theme][data-theme="light"] .number-widget-box:hover,
+html[data-vac-theme][data-theme="light"] .chart-widget-box:hover {
+	box-shadow: 0 10px 24px rgba(18, 48, 59, 0.12) !important;
 }
-html[data-vac-theme][data-theme="dark"] .number-widget-box:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 16px 32px rgba(0, 0, 0, 0.34) !important;
+html[data-vac-theme][data-theme="dark"] .number-widget-box:hover,
+html[data-vac-theme][data-theme="dark"] .chart-widget-box:hover {
+	box-shadow: 0 14px 30px rgba(0, 0, 0, 0.32) !important;
+}
+html[data-vac-theme] .number-widget-box:focus-within,
+html[data-vac-theme] .chart-widget-box:focus-within,
+html[data-vac-theme] .number-widget-box:has(.dropdown-menu.show),
+html[data-vac-theme] .chart-widget-box:has(.dropdown-menu.show) {
+	z-index: 20;
 }
 
 /* morning greeting card — a subtle sibling of the KPI cards (same surface,
@@ -677,4 +694,19 @@ html[data-vac-theme="nature"][data-theme="dark"] .grid-heading-row .col,
 html[data-vac-theme="nature"][data-theme="dark"] .grid-heading-row .static-area,
 html[data-vac-theme="nature"][data-theme="dark"] .grid-heading-row .field-area {
 	color: #bdd6cd;
+}
+
+/* readability: light grid column headers were the twin of the dark bug (~1.8:1
+   on cream); give them the same legible ink the dark side already got. */
+html[data-vac-theme="nature"][data-theme="light"] .grid-heading-row,
+html[data-vac-theme="nature"][data-theme="light"] .grid-heading-row .col,
+html[data-vac-theme="nature"][data-theme="light"] .grid-heading-row .static-area,
+html[data-vac-theme="nature"][data-theme="light"] .grid-heading-row .field-area {
+	color: #3e5c54;
+}
+
+/* readability: greeting eyebrow accent (#2f8f5b) was ~4:1 on the white card in
+   light; use the darker brand green so the label passes AA. */
+html[data-theme="light"] #vac-greet-wrap .eyebrow {
+	color: #237046;
 }
