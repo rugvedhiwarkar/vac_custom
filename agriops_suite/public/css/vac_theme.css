@@ -1,24 +1,33 @@
-/* VAC Claude-style Desk theme — warm ivory light mode, warm charcoal dark mode,
- * terracotta accent. Palette modelled on the Claude desktop app.
+/* VAC Desk themes — two variants sharing one gate:
  *
- * Self-gating: every rule is scoped under html[data-vac-theme], which is set by
- * vac_theme.js only when the site's frappe.conf has `vac_theme_enabled` (see
- * boot.py). Shipping this file to the shared bench does NOT restyle production
- * until that site's flag is switched on (staging-first switch):
+ *   claude — warm ivory light / warm charcoal dark, terracotta accent
+ *            (palette modelled on the Claude desktop app)
+ *   leaf   — badge-aqua light / leaf-navy dark, vein-emerald accent
+ *            (palette sampled from the Vijay Agro Centre logo PNG)
+ *
+ * Self-gating: rules are scoped under html[data-vac-theme="<variant>"], set by
+ * vac_theme.js only when the site's boot carries `vac_theme_enabled` (see
+ * boot.py). The variant comes from `vac_theme_variant` (default "claude").
+ * Shipping this file to the shared bench does NOT restyle production until
+ * that site's flag is switched on (staging-first switch):
  *   bench --site <site> set-config vac_theme_enabled 1
+ *   bench --site <site> set-config vac_theme_variant leaf
+ * The claude blocks also match the legacy attribute value "1" so a stale
+ * cached vac_theme.js (which set "1") keeps rendering the claude look.
  *
  * Strategy: Frappe v16 (Espresso) derives its whole desk UI from a neutral
  * --gray-50..900 ramp plus the surface / ink / outline families and a handful
  * of semantic tokens. (NB: a star followed by a slash anywhere in a comment
  * ends it early and CSS error-recovery then eats the next rule — that bug
  * once cost this file its entire light block.)
- * We replace the neutral ramp with a warm "stone" ramp and
- * re-point the accent tokens at terracotta; everything else follows. Status
- * colours (red/green/amber/blue indicators, alerts) are left untouched.
+ * We replace the neutral ramp with a tinted ramp and re-point the accent
+ * tokens; everything else follows. Status colours (red/green/amber/blue
+ * indicators, alerts) are left untouched in both variants.
  */
 
-/* ============================== LIGHT ============================== */
-html[data-vac-theme][data-theme="light"] {
+/* ========================== CLAUDE — LIGHT ========================== */
+html[data-vac-theme="1"][data-theme="light"],
+html[data-vac-theme="claude"][data-theme="light"] {
 	/* warm stone ramp (replaces the neutral gray ramp) */
 	--gray-50: #faf9f5;
 	--gray-100: #f0eee6;
@@ -85,8 +94,9 @@ html[data-vac-theme][data-theme="light"] {
 	--sidebar-card-button-color: #b4552f;
 }
 
-/* ============================== DARK =============================== */
-html[data-vac-theme][data-theme="dark"] {
+/* ========================== CLAUDE — DARK =========================== */
+html[data-vac-theme="1"][data-theme="dark"],
+html[data-vac-theme="claude"][data-theme="dark"] {
 	/* same warm ramp: dark mode maps its semantics onto the far end of it,
 	 * so --bg-color/--card-bg land on #262624 (Claude dark) automatically */
 	--gray-50: #faf9f5;
@@ -152,28 +162,398 @@ html[data-vac-theme][data-theme="dark"] {
 	--sidebar-card-button-color: #e09b82;
 }
 
+/* =========================== LEAF — LIGHT =========================== */
+/* Logo-sampled palette: badge aqua #D3EAF2 canvas, white cards, leaf-navy
+ * #1E3164 navbar, vein-emerald #0E8A66 accent, lettering-slate #33525F ink */
+html[data-vac-theme="leaf"][data-theme="light"] {
+	/* slate-aqua ramp (replaces the neutral gray ramp) */
+	--gray-50: #f1f8fb;
+	--gray-100: #e3f0f6;
+	--gray-200: #d3eaf2;
+	--gray-300: #b9d6e1;
+	--gray-400: #93b4c2;
+	--gray-500: #6e93a3;
+	--gray-600: #547788;
+	--gray-700: #3e5d6e;
+	--gray-800: #33525f;
+	--gray-900: #14232e;
+
+	/* canvas & chrome */
+	--bg-color: #d3eaf2;
+	--navbar-bg: #1e3164;
+	--fg-color: #ffffff;
+	--card-bg: #ffffff;
+	--modal-bg: #ffffff;
+	--popover-bg: #ffffff;
+	--awesomebar-focus-bg: #ffffff;
+
+	/* espresso surface / outline / ink families (light) */
+	--surface-menu-bar: #e3f0f6;
+	--surface-modal: #ffffff;
+	--surface-white: #ffffff;
+	--surface-gray-1: #f4fafc;
+	--surface-gray-2: #e9f3f8;
+	--surface-gray-3: #ddedf4;
+	--surface-gray-4: #cbe0ea;
+	--outline-gray-1: #dcebf2;
+	--outline-gray-2: #cbe0ea;
+	--outline-gray-3: #a9c4d1;
+	--outline-gray-4: #6e93a3;
+	--outline-gray-5: #dcebf2;
+	--outline-gray-modals: #dcebf2;
+	--ink-gray-1: #dcebf2;
+	--ink-gray-2: #cbe0ea;
+	--ink-gray-3: #a9c4d1;
+	--ink-gray-4: #6e93a3;
+	--ink-gray-5: #547788;
+	--ink-gray-6: #3e5d6e;
+	--ink-gray-7: #3e5d6e;
+	--ink-gray-8: #33525f;
+	--ink-gray-9: #14232e;
+
+	--heading-color: #1e3164;
+
+	/* workspace sidebar */
+	--sidebar-hover-color: #c2dfeb;
+	--sidebar-active-color: #ffffff;
+	--sidebar-border-color: #c2dfeb;
+	--divider-color: #c2dfeb;
+
+	/* vein-emerald accent */
+	--primary: #0e8a66;
+	--primary-color: #0e8a66;
+	--btn-primary: #0e8a66;
+	--border-primary: #0b6e52;
+	--focus-default: 0px 0px 0px 2px rgba(14, 138, 102, 0.4);
+	--date-active-bg: #0e8a66;
+	--date-active-text: #ffffff;
+	--sidebar-card-button-outline: #0e8a66;
+	--sidebar-card-button-bg-color: #ddf3ea;
+	--sidebar-card-button-color: #0b6e52;
+}
+
+/* =========================== LEAF — DARK ============================ */
+html[data-vac-theme="leaf"][data-theme="dark"] {
+	/* navy ramp: dark maps its semantics onto the far end, so the canvas
+	 * lands on a deep leaf-navy night instead of neutral black */
+	--gray-50: #eff4fb;
+	--gray-100: #dce7f4;
+	--gray-200: #c3d4ea;
+	--gray-300: #9fb6d6;
+	--gray-400: #7b95bc;
+	--gray-500: #5b759e;
+	--gray-600: #455e86;
+	--gray-700: #31476b;
+	--gray-800: #1d2e4f;
+	--gray-900: #101c33;
+
+	--navbar-bg: #0b1428;
+
+	/* espresso surface / outline / ink families (dark) */
+	--surface-menu-bar: #0b1428;
+	--surface-cards: #182642;
+	--surface-modal: #1c2b4a;
+	--surface-white: #0c1626;
+	--surface-selected: #2c3f66;
+	--surface-gray-1: #17253f;
+	--surface-gray-2: #1c2c4a;
+	--surface-gray-3: #213353;
+	--surface-gray-4: #2c3f66;
+	--surface-gray-5: #94a9c9;
+	--surface-gray-6: #c3d2e8;
+	--surface-gray-7: #eff4fb;
+	--outline-white: #182642;
+	--outline-gray-1: #203150;
+	--outline-gray-2: #28395c;
+	--outline-gray-3: #32456c;
+	--outline-gray-4: #6f87ac;
+	--outline-gray-modals: #28395c;
+	--ink-white: #0c1626;
+	--ink-gray-1: #203150;
+	--ink-gray-2: #2c3f66;
+	--ink-gray-3: #5e769c;
+	--ink-gray-4: #5e769c;
+	--ink-gray-5: #7288ab;
+	--ink-gray-6: #8da2c1;
+	--ink-gray-7: #a9bad4;
+	--ink-gray-8: #cbd7ea;
+	--ink-gray-9: #eff4fb;
+
+	/* workspace sidebar */
+	--sidebar-hover-color: #203150;
+	--sidebar-active-color: #2c3f66;
+	--sidebar-border-color: #203150;
+	--divider-color: #28395c;
+
+	/* vein-emerald accent, brightened one step for the navy canvas */
+	--primary: #17a673;
+	--primary-color: #17a673;
+	--btn-primary: #17a673;
+	--border-primary: #3ecba0;
+	--focus-default: 0px 0px 0px 2px rgba(43, 185, 138, 0.45);
+	--checkbox-gradient: linear-gradient(180deg, #17a673 -124.51%, #17a673 100%);
+	--date-active-bg: #17a673;
+	--date-active-text: #ffffff;
+	--sidebar-card-button-outline: #2bb98a;
+	--sidebar-card-button-bg-color: #12382e;
+	--sidebar-card-button-color: #5fd4ae;
+}
+
+/* ========================== NATURE — LIGHT ========================= */
+/* Website-matched (vijayagro.com): cream #f6f4ee desk, deep-teal #12303b
+ * navbar, leaf-green #2f8f5b accent, mint surfaces, teal-slate ink. */
+html[data-vac-theme="nature"][data-theme="light"] {
+	/* cream-to-teal ramp (replaces the neutral gray ramp) */
+	--gray-50: #f6f4ee;
+	--gray-100: #edf1ec;
+	--gray-200: #e1eae4;
+	--gray-300: #cddbd3;
+	--gray-400: #a5bcb3;
+	--gray-500: #7c968f;
+	--gray-600: #5b7871;
+	--gray-700: #3e5c54;
+	--gray-800: #294540;
+	--gray-900: #122f2a;
+
+	/* canvas & chrome */
+	--bg-color: #f6f4ee;
+	--navbar-bg: #12303b;
+	--fg-color: #ffffff;
+	--card-bg: #ffffff;
+	--modal-bg: #ffffff;
+	--popover-bg: #ffffff;
+	--awesomebar-focus-bg: #ffffff;
+
+	/* espresso surface / outline / ink families (light) */
+	--surface-menu-bar: #edf1ec;
+	--surface-modal: #ffffff;
+	--surface-white: #ffffff;
+	--surface-gray-1: #f3f7f2;
+	--surface-gray-2: #eaf1ec;
+	--surface-gray-3: #e0ebe4;
+	--surface-gray-4: #d3e2d9;
+	--outline-gray-1: #e1eae4;
+	--outline-gray-2: #d3e0d8;
+	--outline-gray-3: #b3c8be;
+	--outline-gray-4: #7c968f;
+	--outline-gray-5: #e1eae4;
+	--outline-gray-modals: #e1eae4;
+	--ink-gray-1: #e6efe9;
+	--ink-gray-2: #d6e2db;
+	--ink-gray-3: #a5bcb3;
+	--ink-gray-4: #7c968f;
+	--ink-gray-5: #5b7871;
+	--ink-gray-6: #3e5c54;
+	--ink-gray-7: #33534b;
+	--ink-gray-8: #294540;
+	--ink-gray-9: #14251f;
+
+	--heading-color: #1c3f4d;
+
+	/* workspace sidebar */
+	--sidebar-hover-color: #e4ede7;
+	--sidebar-active-color: #ffffff;
+	--sidebar-border-color: #dfe8e2;
+	--divider-color: #dfe8e2;
+
+	/* leaf-green accent */
+	--primary: #2f8f5b;
+	--primary-color: #2f8f5b;
+	--btn-primary: #2f8f5b;
+	--border-primary: #237046;
+	--focus-default: 0px 0px 0px 2px rgba(47, 143, 91, 0.4);
+	--date-active-bg: #2f8f5b;
+	--date-active-text: #ffffff;
+	--sidebar-card-button-outline: #2f8f5b;
+	--sidebar-card-button-bg-color: #e2f1e9;
+	--sidebar-card-button-color: #237046;
+}
+
+/* =========================== NATURE — DARK ========================= */
+/* deep forest-teal night with brightened green accent */
+html[data-vac-theme="nature"][data-theme="dark"] {
+	--gray-50: #eef4f1;
+	--gray-100: #d7e6df;
+	--gray-200: #bad1c9;
+	--gray-300: #94b4a9;
+	--gray-400: #6f9088;
+	--gray-500: #4f726a;
+	--gray-600: #3b574f;
+	--gray-700: #2b433c;
+	--gray-800: #193733;
+	--gray-900: #0e2022;
+
+	--navbar-bg: #081a1c;
+
+	/* espresso surface / outline / ink families (dark) */
+	--surface-menu-bar: #081a1c;
+	--surface-cards: #15302d;
+	--surface-modal: #193733;
+	--surface-white: #0c1e1f;
+	--surface-selected: #2b524c;
+	--surface-gray-1: #153330;
+	--surface-gray-2: #193b36;
+	--surface-gray-3: #1f453f;
+	--surface-gray-4: #2b524c;
+	--surface-gray-5: #93b3a9;
+	--surface-gray-6: #c3ddd4;
+	--surface-gray-7: #eef4f1;
+	--outline-white: #15302d;
+	--outline-gray-1: #1c3d38;
+	--outline-gray-2: #25463f;
+	--outline-gray-3: #2f544c;
+	--outline-gray-4: #6f8f86;
+	--outline-gray-modals: #25463f;
+	--ink-white: #0c1e1f;
+	--ink-gray-1: #1c3d38;
+	--ink-gray-2: #2b524c;
+	--ink-gray-3: #5f7f77;
+	--ink-gray-4: #5f7f77;
+	--ink-gray-5: #728e86;
+	--ink-gray-6: #8ba79e;
+	--ink-gray-7: #a9c4bb;
+	--ink-gray-8: #cbe0d8;
+	--ink-gray-9: #eef4f1;
+
+	/* workspace sidebar */
+	--sidebar-hover-color: #1c3d38;
+	--sidebar-active-color: #2b524c;
+	--sidebar-border-color: #1c3d38;
+	--divider-color: #25463f;
+
+	/* brightened leaf-green accent for the teal night */
+	--primary: #3fa878;
+	--primary-color: #3fa878;
+	--btn-primary: #3fa878;
+	--border-primary: #63c99b;
+	--focus-default: 0px 0px 0px 2px rgba(63, 168, 120, 0.45);
+	--checkbox-gradient: linear-gradient(180deg, #3fa878 -124.51%, #3fa878 100%);
+	--date-active-bg: #3fa878;
+	--date-active-text: #ffffff;
+	--sidebar-card-button-outline: #3fa878;
+	--sidebar-card-button-bg-color: #123a2c;
+	--sidebar-card-button-color: #63c99b;
+}
+
+/* nature light runs a deep-teal navbar on a cream desk: flip the ink and
+ * surface families to light values inside the navbar only */
+html[data-vac-theme="nature"][data-theme="light"] .navbar {
+	--ink-gray-3: #7fa39a;
+	--ink-gray-4: #93b3ab;
+	--ink-gray-5: #a9c4bb;
+	--ink-gray-6: #c4d9d2;
+	--ink-gray-7: #dce9e4;
+	--ink-gray-8: #edf4f1;
+	--ink-gray-9: #f7fbf9;
+	--surface-gray-1: #1c3f47;
+	--surface-gray-2: #1c3f47;
+	--surface-gray-3: #264c54;
+	--surface-gray-4: #2f5860;
+	--outline-gray-1: #264c54;
+	--outline-gray-2: #2f5860;
+	--outline-gray-3: #3d6670;
+	--icon-stroke: #c4d9d2;
+}
+html[data-vac-theme="nature"][data-theme="light"] .navbar .dropdown-menu {
+	--ink-gray-3: #a5bcb3;
+	--ink-gray-4: #7c968f;
+	--ink-gray-5: #5b7871;
+	--ink-gray-6: #3e5c54;
+	--ink-gray-7: #33534b;
+	--ink-gray-8: #294540;
+	--ink-gray-9: #14251f;
+	--surface-gray-1: #f3f7f2;
+	--surface-gray-2: #eaf1ec;
+	--surface-gray-3: #e0ebe4;
+	--surface-gray-4: #d3e2d9;
+	--outline-gray-1: #e1eae4;
+	--outline-gray-2: #d3e0d8;
+	--outline-gray-3: #b3c8be;
+	--icon-stroke: #3e5c54;
+}
+
 /* ========================= COMPONENT RULES ========================= */
 /* stock dark mode gives .btn-primary dark text (its button is light gray);
- * with a terracotta button the label must be white in both modes */
+ * with a coloured button the label must be white in both modes and variants */
 html[data-vac-theme] .btn-primary {
 	color: #ffffff !important;
 }
-html[data-vac-theme] .btn-primary:hover,
-html[data-vac-theme] .btn-primary:active,
-html[data-vac-theme] .btn-primary:focus {
+html[data-vac-theme="1"] .btn-primary:hover,
+html[data-vac-theme="1"] .btn-primary:active,
+html[data-vac-theme="1"] .btn-primary:focus,
+html[data-vac-theme="claude"] .btn-primary:hover,
+html[data-vac-theme="claude"] .btn-primary:active,
+html[data-vac-theme="claude"] .btn-primary:focus {
 	background-color: #c96442 !important;
 	color: #ffffff !important;
 }
+html[data-vac-theme="leaf"] .btn-primary:hover,
+html[data-vac-theme="leaf"] .btn-primary:active,
+html[data-vac-theme="leaf"] .btn-primary:focus {
+	background-color: #0b6e52 !important;
+	color: #ffffff !important;
+}
+html[data-vac-theme="nature"] .btn-primary:hover,
+html[data-vac-theme="nature"] .btn-primary:active,
+html[data-vac-theme="nature"] .btn-primary:focus {
+	background-color: #237046 !important;
+	color: #ffffff !important;
+}
 
-/* Claude-style serif page titles (system serif stack — no bundled font) */
-html[data-vac-theme] .title-text {
+/* Claude-style serif page titles (system serif stack — no bundled font);
+ * claude variant only, leaf keeps the stock sans titles */
+html[data-vac-theme="1"] .title-text,
+html[data-vac-theme="claude"] .title-text {
 	font-family: Georgia, "Iowan Old Style", "Palatino Linotype",
 		"Times New Roman", serif;
 	font-weight: 600;
 	letter-spacing: -0.015em;
 }
 
-/* print formats keep the stock neutral ramp — invoices/PDFs must not warm up */
+/* leaf light mode runs a NAVY navbar on a light desk, so the ink and
+ * surface families must flip to light values inside the navbar only
+ * (dark mode already has light ink — no remap needed there).
+ * NEEDS LIVE STAGING VERIFICATION: token usage inside the v16 navbar
+ * (search pill, icons) was inferred, not yet confirmed in the browser. */
+html[data-vac-theme="leaf"][data-theme="light"] .navbar {
+	--ink-gray-3: #7b95c8;
+	--ink-gray-4: #8fa8d8;
+	--ink-gray-5: #a9bee8;
+	--ink-gray-6: #c4d4f5;
+	--ink-gray-7: #dce6fa;
+	--ink-gray-8: #edf2fd;
+	--ink-gray-9: #f7faff;
+	--surface-gray-1: #2a3e75;
+	--surface-gray-2: #2a3e75;
+	--surface-gray-3: #33488a;
+	--surface-gray-4: #3b529b;
+	--outline-gray-1: #33488a;
+	--outline-gray-2: #3b529b;
+	--outline-gray-3: #4a61ac;
+	--icon-stroke: #c4d4f5;
+}
+/* dropdown panels anchored inside the navbar stay white, so restore the
+ * slate ink and aqua surfaces within them */
+html[data-vac-theme="leaf"][data-theme="light"] .navbar .dropdown-menu {
+	--ink-gray-3: #a9c4d1;
+	--ink-gray-4: #6e93a3;
+	--ink-gray-5: #547788;
+	--ink-gray-6: #3e5d6e;
+	--ink-gray-7: #3e5d6e;
+	--ink-gray-8: #33525f;
+	--ink-gray-9: #14232e;
+	--surface-gray-1: #f4fafc;
+	--surface-gray-2: #e9f3f8;
+	--surface-gray-3: #ddedf4;
+	--surface-gray-4: #cbe0ea;
+	--outline-gray-1: #dcebf2;
+	--outline-gray-2: #cbe0ea;
+	--outline-gray-3: #a9c4d1;
+	--icon-stroke: #3e5d6e;
+}
+
+/* print formats keep the stock neutral ramp in BOTH variants —
+ * invoices/PDFs must not pick up theme tints */
 html[data-vac-theme] .print-format {
 	--gray-50: #f8f8f8;
 	--gray-100: #f3f3f3;

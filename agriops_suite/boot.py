@@ -9,3 +9,5 @@ def extend_bootinfo(bootinfo):
 	redeploy: bench --site <site> set-config vac_theme_enabled 1
 	"""
 	bootinfo.vac_theme_enabled = frappe.conf.get("vac_theme_enabled") or 0
+	# which palette: "1"/"claude" (default), "leaf", or "nature" (website-matched)
+	bootinfo.vac_theme_variant = frappe.conf.get("vac_theme_variant") or "1"

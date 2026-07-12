@@ -10,7 +10,10 @@
 (function () {
 	function apply() {
 		if (window.frappe && frappe.boot && frappe.boot.vac_theme_enabled) {
-			document.documentElement.setAttribute("data-vac-theme", "1");
+			// variant comes from site config (boot.py exposes vac_theme_variant);
+			// legacy sites without it fall back to "1" = the claude look.
+			var v = frappe.boot.vac_theme_variant || "1";
+			document.documentElement.setAttribute("data-vac-theme", v);
 			return true;
 		}
 		return false;
