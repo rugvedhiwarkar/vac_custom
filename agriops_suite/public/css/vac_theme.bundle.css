@@ -678,3 +678,14 @@ html[data-vac-theme="nature"][data-theme="dark"] .grid-heading-row .static-area,
 html[data-vac-theme="nature"][data-theme="dark"] .grid-heading-row .field-area {
 	color: #bdd6cd;
 }
+
+/* readability: dropdown / context-menu items (column Sort/Freeze menu, the
+   card and grid "..." menus) rendered at a dim gray on the dark menu surface;
+   use the bright body-text colour so options are legible. */
+html[data-vac-theme="nature"][data-theme="dark"] .dropdown-menu .dropdown-item,
+html[data-vac-theme="nature"][data-theme="dark"] .dropdown-menu li > a,
+html[data-vac-theme="nature"][data-theme="dark"] .dropdown-menu .menu-item-label,
+html[data-vac-theme="nature"][data-theme="dark"] .dropdown-menu a.grey-link,
+html[data-vac-theme="nature"][data-theme="dark"] .grid-menu .dropdown-item {
+	color: var(--text-color) !important;
+}
