@@ -710,3 +710,31 @@ html[data-vac-theme="nature"][data-theme="light"] .grid-heading-row .field-area 
 html[data-theme="light"] #vac-greet-wrap .eyebrow {
 	color: #237046;
 }
+
+/* ---- Sidebar B: the ACTIVE workspace's icon turns leaf-green, so you see
+   where you are at a glance; every other icon stays mono. ---- */
+html[data-vac-theme="nature"] .standard-sidebar-item.active-sidebar .sidebar-item-icon,
+html[data-vac-theme="nature"] .standard-sidebar-item.active-sidebar .sidebar-item-icon svg {
+	color: var(--primary) !important;
+	--icon-stroke: var(--primary);
+}
+
+/* ---- Section-header accent: a small leaf-green marker anchors each workspace
+   section header. Light-DOM (editorjs) headers only — the shadow-DOM Apps grid
+   is untouched by theme CSS. ---- */
+html[data-vac-theme="nature"] .codex-editor__redactor .ce-header {
+	position: relative;
+	padding-left: 15px;
+}
+html[data-vac-theme="nature"] .codex-editor__redactor .ce-header::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 4px;
+	height: 1em;
+	border-radius: 3px;
+	background: var(--primary);
+	opacity: 0.85;
+}

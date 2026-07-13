@@ -93,21 +93,32 @@
 	function try_inject(n) {
 		if (!on_landing()) return;
 		if (document.getElementById("vac-greet-wrap")) return;
+		// Wait for the workspace content to actually RENDER before showing the
+		// banner. Injecting as soon as the empty container exists made the banner
+		// appear ahead of the KPI cards on a cold first load — the cards fetch
+		// their data async, so there was a visible empty gap below the banner
+		// until they filled in (and it was fine on return visits because the
+		// page was cached). Require the redactor to have blocks; only after the
+		// retries are exhausted, inject anyway so the banner is never lost.
+		var redactor = document.querySelector(".codex-editor__redactor");
 		var target =
-			document.querySelector(".codex-editor__redactor") ||
-			document.querySelector(".layout-main-section");
+			redactor && redactor.children.length > 0
+				? redactor
+				: n <= 0
+				? redactor || document.querySelector(".layout-main-section")
+				: null;
 		if (target) {
 			var wrap = build();
 			target.parentNode.insertBefore(wrap, target);
 			fill(wrap);
 			return;
 		}
-		if (n > 0) setTimeout(function () { try_inject(n - 1); }, 250);
+		if (n > 0) setTimeout(function () { try_inject(n - 1); }, 200);
 	}
 
 	function handle() {
 		if (on_landing()) {
-			try_inject(24);
+			try_inject(50);
 		} else {
 			var e = document.getElementById("vac-greet-wrap");
 			if (e) e.remove();
