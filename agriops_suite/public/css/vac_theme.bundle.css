@@ -464,6 +464,10 @@ html[data-vac-theme="nature"][data-theme="dark"] {
  * dropdown included, restored below). */
 html[data-vac-theme="nature"][data-theme="light"] .body-sidebar {
 	background-color: #12303b !important;
+	/* the switcher-header title ("VAC") uses --text-color, not the ink ramp;
+	   flip it (and heading) light too or it stays dark-on-teal (~1.3:1) */
+	--text-color: #edf4f1;
+	--heading-color: #f7fbf9;
 	--sidebar-hover-color: #1c3d38;
 	--sidebar-active-color: #2b524c;
 	--sidebar-border-color: #1c3d38;
@@ -486,6 +490,8 @@ html[data-vac-theme="nature"][data-theme="light"] .body-sidebar {
 }
 html[data-vac-theme="nature"][data-theme="light"] .body-sidebar .dropdown-menu {
 	background-color: #ffffff;
+	--text-color: #294540;
+	--heading-color: #1c3f4d;
 	--ink-gray-3: #a5bcb3;
 	--ink-gray-4: #7c968f;
 	--ink-gray-5: #5b7871;
