@@ -320,6 +320,9 @@ html[data-vac-theme="nature"][data-theme="light"] {
 	   legible muted value. */
 	--placeholder-color: #5b7871;
 	--disabled-text-color: #607e76;
+	/* muted helper text: keep it on the teal-tinted dim tier (dark sets this at
+	   line ~398; light left it at Frappe's stock neutral gray). Passes AA. */
+	--text-muted: #5b7871;
 
 	/* canvas & chrome */
 	--bg-color: #f6f4ee;
@@ -453,9 +456,18 @@ html[data-vac-theme="nature"][data-theme="dark"] {
 	--sidebar-card-button-color: #63c99b;
 }
 
-/* nature light runs a deep-teal navbar on a cream desk: flip the ink and
- * surface families to light values inside the navbar only */
-html[data-vac-theme="nature"][data-theme="light"] .navbar {
+/* nature light: paint the desk sidebar (.body-sidebar) deep-teal to match the
+ * vijayagro.com header and the dark-mode sidebar, flipping the ink / surface /
+ * outline families to light values WITHIN it so labels and icons stay legible.
+ * Retargeted from the old .navbar remap — v16 Espresso has no .navbar element;
+ * the desk chrome is .body-sidebar. Verified readable on staging (switcher
+ * dropdown included, restored below). */
+html[data-vac-theme="nature"][data-theme="light"] .body-sidebar {
+	background-color: #12303b !important;
+	--sidebar-hover-color: #1c3d38;
+	--sidebar-active-color: #2b524c;
+	--sidebar-border-color: #1c3d38;
+	--divider-color: #25463f;
 	--ink-gray-3: #7fa39a;
 	--ink-gray-4: #93b3ab;
 	--ink-gray-5: #a9c4bb;
@@ -472,7 +484,8 @@ html[data-vac-theme="nature"][data-theme="light"] .navbar {
 	--outline-gray-3: #3d6670;
 	--icon-stroke: #c4d9d2;
 }
-html[data-vac-theme="nature"][data-theme="light"] .navbar .dropdown-menu {
+html[data-vac-theme="nature"][data-theme="light"] .body-sidebar .dropdown-menu {
+	background-color: #ffffff;
 	--ink-gray-3: #a5bcb3;
 	--ink-gray-4: #7c968f;
 	--ink-gray-5: #5b7871;
@@ -583,6 +596,12 @@ html[data-vac-theme] .print-format {
 	--gray-700: #525252;
 	--gray-800: #383838;
 	--gray-900: #171717;
+}
+
+/* text selection picks up the leaf-green accent instead of the browser's
+   default blue highlight (nature variant) */
+html[data-vac-theme="nature"] ::selection {
+	background: rgba(47, 143, 91, 0.24);
 }
 
 /* ====================================================================
