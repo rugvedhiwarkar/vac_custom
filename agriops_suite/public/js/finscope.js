@@ -22,11 +22,19 @@
 frappe.provide("finscope");
 
 finscope.PREFIXES = ["FinScope - ", "StockPilot "];
+// Standard reports (e.g. "General Ledger") augmented IN-PLACE, opt-in PER SITE
+// via site_config `finscope_ledger_reports` (surfaced on frappe.boot). Empty by
+// default => shipping this changes nothing until a site enables it. Exact-name
+// match only, so unrelated reports are never touched.
+finscope.exact_reports = function () {
+	try { return (frappe.boot && frappe.boot.finscope_ledger_reports) || []; } catch (e) { return []; }
+};
 finscope.is_feature_report = function (name) {
 	if (typeof name !== "string") return false;
 	for (var i = 0; i < finscope.PREFIXES.length; i++) {
 		if (name.indexOf(finscope.PREFIXES[i]) === 0) return true;
 	}
+	if (finscope.exact_reports().indexOf(name) >= 0) return true;
 	return false;
 };
 finscope.native_tree = function (rows) {
