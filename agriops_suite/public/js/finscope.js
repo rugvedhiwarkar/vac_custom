@@ -10,6 +10,7 @@
 //
 // Features (persisted per-browser in localStorage, keyed per report):
 //   - persistent column ORDER  (drag a column; survives Refresh and reload)
+//   - persistent column WIDTH  (drag a column edge; survives Refresh and reload)
 //   - column VISIBILITY        (remove a column, or use the "Columns" picker)
 //   - column RENAME            (pencil in the "Columns" picker; reset restores)
 //   - Summarize By any column  (2 levels) with collapsible drill-down; group
@@ -53,12 +54,15 @@ finscope.col_key = () => "finscope_colorder::" + finscope.rname();
 finscope.sum_key = () => "finscope_summarize::" + finscope.rname();
 finscope.hid_key = () => "finscope_hidden::" + finscope.rname();
 finscope.ren_key = () => "finscope_rename::" + finscope.rname();
+finscope.wid_key = () => "finscope_width::" + finscope.rname();
 finscope.ls_get = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
 finscope.ls_set = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 finscope.get_hidden = () => finscope.ls_get(finscope.hid_key()) || [];
 finscope.set_hidden = (a) => finscope.ls_set(finscope.hid_key(), a);
 finscope.get_renames = () => finscope.ls_get(finscope.ren_key()) || {};
 finscope.set_renames = (m) => finscope.ls_set(finscope.ren_key(), m);
+finscope.get_widths = () => finscope.ls_get(finscope.wid_key()) || {};
+finscope.set_widths = (m) => finscope.ls_set(finscope.wid_key(), m);
 finscope.fields_in_order = (dt) => (dt.getColumns() || []).map((c) => c.fieldname).filter(Boolean);
 
 /* ---- visibility + rename: rebuild report.columns from the pristine set ----
@@ -110,6 +114,12 @@ finscope.decorate_options = function (options) {
 			saved.forEach((f) => { if (map[f]) { re.push(map[f]); delete map[f]; } });
 			options.columns.forEach((c) => { if (map[c.fieldname]) { re.push(c); delete map[c.fieldname]; } });
 			if (re.length === options.columns.length) options.columns = re;
+		}
+	} catch (e) {}
+	try {
+		var savedW = finscope.get_widths();
+		if (options.columns && Object.keys(savedW).length) {
+			options.columns.forEach((c) => { if (c.fieldname && savedW[c.fieldname]) c.width = savedW[c.fieldname]; });
 		}
 	} catch (e) {}
 	options.events = options.events || {};
@@ -366,7 +376,22 @@ finscope.init = function () {
 			}
 		} catch (e) {}
 	});
-	console.log("FinScope: ledger features active (order / hide / rename / summarize) for 'FinScope - *' and 'StockPilot *' reports");
+	// persist column WIDTHS: after any mouse-up while on a feature report, if a
+	// column width changed (i.e. a resize just happened) snapshot all widths.
+	$(document).on("mouseup.fswidth", function () {
+		var r = frappe.query_report;
+		if (!r || !r.datatable || !finscope.on()) return;
+		setTimeout(function () {
+			if (!r.datatable) return;
+			var cols = r.datatable.getColumns() || [];
+			var cur = {}, changed = false;
+			cols.forEach(function (c) { if (c.fieldname && c.width) cur[c.fieldname] = c.width; });
+			var saved = finscope.get_widths();
+			Object.keys(cur).forEach(function (k) { if (saved[k] !== cur[k]) changed = true; });
+			if (changed) finscope.set_widths(cur);
+		}, 150);
+	});
+	console.log("FinScope: ledger features active (order / width / hide / rename / summarize) for 'FinScope - *' and 'StockPilot *' reports");
 };
 finscope.init();
 $(document).ready(finscope.init);
