@@ -35,7 +35,9 @@ page_js = {"point-of-sale": "public/js/pos_cash_desk.js"}
 # vac_desk: breadcrumb home icon -> the user's default workspace (self-gating
 # on User.default_workspace being set; stock /desk behaviour otherwise).
 app_include_js = [
-    "/assets/agriops_suite/js/finscope.js",
+    # content-hashed bundle so an edit busts the immutable /assets cache (a raw
+    # /assets/.../finscope.js path stays cached max-age=1yr and never updates)
+    "finscope.bundle.js",
     # vac_theme is a .bundle.js so esbuild content-hashes its URL — a theme
     # edit changes the hash and busts the immutable /assets cache (a raw
     # /assets path stays cached max-age=1yr and never updates).
