@@ -77,6 +77,23 @@
     if (d.fields_dict.reference_no) d.set_df_property('reference_no', 'hidden', isBank ? 0 : 1);
   }
 
+  // current balance of an account (read-only), cached per dialog, shown in the preview
+  function fv_fetch_balance(d, acct) {
+    if (!acct) return;
+    if (!d.__bal) d.__bal = {};
+    if (acct in d.__bal) { fv_preview(d); return; }  // already fetched or in flight
+    d.__bal[acct] = null;  // in-flight marker (renders as "…")
+    frappe.call({
+      method: 'fast_voucher_balance',
+      args: { account: acct, date: d.get_value('posting_date') || frappe.datetime.get_today() },
+      callback: function (r) {
+        d.__bal[acct] = (r && r.message !== null && r.message !== undefined) ? flt(r.message) : null;
+        fv_preview(d);
+      },
+      error: function () { d.__bal[acct] = false; fv_preview(d); }  // method absent on this site — hide gracefully
+    });
+  }
+
   function fv_bind_enter(d) {
     ['party', 'mode', 'from_account', 'to_account', 'reference_no', 'amount', 'remark'].forEach(function (fn) {
       var fd = d.fields_dict[fn];
@@ -120,6 +137,21 @@
     if (warnOn) line += ' &nbsp;&middot;&nbsp; <b style="color:var(--red-600, #c0392b)">confirm required</b>';
     var bg = warnOn ? 'rgba(220,53,69,0.14)' : 'var(--control-bg, var(--bg-light-gray, #f4f5f6))';
     var bd = warnOn ? 'var(--red-500, #dc3545)' : 'var(--border-color, transparent)';
+    // current balance of the VISIBLE from/to accounts
+    var bal = d.__bal || {}, accs = [];
+    var vfrom = d.get_value('from_account'), vto = d.get_value('to_account');
+    if (vfrom && d.fields_dict.from_account && !d.fields_dict.from_account.df.hidden) accs.push(vfrom);
+    if (vto && vto !== vfrom && d.fields_dict.to_account && !d.fields_dict.to_account.df.hidden) accs.push(vto);
+    if (accs.length) {
+      var parts = [];
+      accs.forEach(function (a) {
+        var b = bal[a];
+        if (b === false) return;  // unavailable on this site — hide
+        var t = (b === null || b === undefined) ? '…' : format_currency(b, 'INR');
+        parts.push(frappe.utils.escape_html(a) + ': <b>' + t + '</b>');
+      });
+      if (parts.length) line += '<div style="margin-top:5px;font-size:12px;opacity:.8">Balance &nbsp; ' + parts.join(' &nbsp;·&nbsp; ') + '</div>';
+    }
     d.fields_dict.preview.$wrapper.html(
       '<div style="padding:8px 10px;border-radius:6px;background:' + bg + ';color:var(--text-color);border:1px solid ' + bd + ';font-size:13px;line-height:1.6">' + line + '</div>');
   }
@@ -127,6 +159,7 @@
   function fv_after_post(d) {
     var vt = d.get_value('vtype');
     ['party', 'mode', 'from_account', 'to_account', 'reference_no', 'amount', 'remark'].forEach(function (fn) { d.set_value(fn, ''); });
+    d.__bal = {};  // posting changed balances — refetch on next selection
     var first = d.fields_dict[fv_flow(vt)[0]];
     setTimeout(function () { if (first && first.$input) first.$input.focus(); }, 150);
     fv_preview(d);
@@ -196,6 +229,7 @@
     });
     d.cfg = cfg;
     d.drawerType = drawerType;
+    d.__bal = {};
     d.show();
     d.fields_dict.vtype.$input.on('change', function () { fv_relayout(d); });
     if (d.fields_dict.mode.$input) {
@@ -203,14 +237,15 @@
         var acct = modeMap[d.get_value('mode')];
         if (acct) {
           if (d.get_value('vtype') === 'Receipt') d.set_value('to_account', acct); else d.set_value('from_account', acct);
-          fv_ref_toggle(d); fv_bind_enter(d); fv_preview(d);
+          fv_ref_toggle(d); fv_bind_enter(d); fv_fetch_balance(d, acct); fv_preview(d);
         }
       });
     }
-    ['from_account', 'to_account', 'party'].forEach(function (fn) {
+    ['from_account', 'to_account'].forEach(function (fn) {
       var fd = d.fields_dict[fn];
-      if (fd && fd.$input) fd.$input.on('change', function () { fv_ref_toggle(d); fv_bind_enter(d); fv_preview(d); });
+      if (fd && fd.$input) fd.$input.on('change', function () { fv_ref_toggle(d); fv_bind_enter(d); fv_fetch_balance(d, d.get_value(fn)); fv_preview(d); });
     });
+    if (d.fields_dict.party.$input) d.fields_dict.party.$input.on('change', function () { fv_ref_toggle(d); fv_bind_enter(d); fv_preview(d); });
     if (d.fields_dict.amount.$input) d.fields_dict.amount.$input.on('change', function () { fv_preview(d); });
     setTimeout(function () {
       if (!d.get_value('vtype')) d.set_value('vtype', 'Payment');
