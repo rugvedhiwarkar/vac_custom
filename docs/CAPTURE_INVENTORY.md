@@ -4,8 +4,15 @@ Read-only inventory of what `agriops_suite` (ex `agro_suite`) captures, taken fr
 (`vijayagrocentre.frappe.cloud`). This is the source of truth for the fixture
 allowlists in `hooks.py`.
 
-Installed apps on site: `frappe`, `erpnext`, `india_compliance`, `insights`,
-`frappe_assistant_core`. No custom app of ours was installed yet — we start clean.
+Installed apps on site **as of the 2026-07-07 freeze**: `frappe`, `erpnext`,
+`india_compliance`, `insights`, `frappe_assistant_core`. No custom app of ours was
+installed yet — we start clean.
+
+> **Stale since 2026-07-16:** `insights` is **no longer installed** on production
+> (or staging) — it disappeared when the installed-apps registry was rewritten
+> 2026-07-15 18:48:31. Nothing in this inventory captures Insights, so the fixture
+> allowlists are unaffected; the app list above is kept as the historical record of
+> the freeze. For the live app set see CLAUDE.md, which is the source of truth.
 
 ## CAPTURE (ours)
 
