@@ -113,12 +113,23 @@ input { font: inherit; color: inherit; }
 }
 .itemgrid button.on { border-color: var(--green); background: var(--green-soft); color: var(--green-dark); }
 .itemgrid button.more { border-style: dashed; color: var(--muted); font-weight: 600; }
-.itemsel {
-	margin-top: 10px; background: var(--green-soft); color: var(--green-dark);
-	border-radius: 10px; padding: 10px 12px; font-weight: 800; font-size: 1.05rem;
-	display: none; align-items: center; gap: 8px;
+/* goods lines (multi-item) */
+.lines { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.line {
+	display: flex; align-items: center; gap: 10px;
+	background: var(--green-soft); color: var(--green-dark);
+	border-radius: 10px; padding: 10px 12px; font-size: 1rem;
 }
-.itemsel.show { display: flex; }
+.line .lt { flex: 1; min-width: 0; }
+.line .lx {
+	min-width: 40px; height: 40px; border-radius: 10px; font-size: 1.1rem; font-weight: 800;
+	background: rgba(0,0,0,.07); color: var(--red);
+}
+.addline {
+	width: 100%; margin-top: 10px; border: 2px dashed var(--green); color: var(--green-dark);
+	border-radius: 12px; padding: 12px; font-size: 1.05rem; font-weight: 800; background: #fff;
+}
+.addline:active { background: var(--green-soft); }
 
 /* qty */
 .qtyrow { display: flex; gap: 10px; align-items: stretch; }
@@ -298,7 +309,11 @@ function syncNow() {
 			chain = chain.then(function () {
 				return api("/api/method/driver_slip_submit", {
 					method: "POST",
-					json: { client_uid: q.uid, slip_date: q.slip_date, challan_no: q.challan_no, from_place: q.from_place, item: q.item, qty: q.qty, destination: q.destination }
+					json: {
+						client_uid: q.uid, slip_date: q.slip_date, challan_no: q.challan_no,
+						from_place: q.from_place, destination: q.destination,
+						items: (q.items || []).map(function (l) { return { item: l.item, qty: l.qty }; })
+					}
 				}).then(function (r) {
 					q.server_name = (r.message || {}).name || "";
 					q.state = q.has_photo ? "synced" : "done";
@@ -417,7 +432,19 @@ function renderPair(msg) {
 	};
 }
 
-var F = { slip_date: "", challan_no: "", from_place: "", item: "", qty: "", destination: "", photo: null };
+var F = { slip_date: "", challan_no: "", from_place: "", lines: [], destination: "", photo: null };
+var curItem = "";
+
+function getPlaces() {
+	var b = getBoot() || {};
+	if (b.places && b.places.length) return b.places;
+	/* offline fallback until the first bootstrap lands; the authoritative list
+	   (+ its Purchase/Sale mapping) lives in the Bootstrap/Validate scripts */
+	return [
+		{ value: "Main Store Paraswada (KP)", label: "मेन स्टोअर परसवाडा", hint: "प्लांटवरून माल आणला", leg: "Purchase" },
+		{ value: "Parijat (VAC)", label: "परिजात", hint: "गोदामातून माल नेला", leg: "Sale" }
+	];
+}
 
 function renderMain() {
 	var b = getBoot() || {};
@@ -440,22 +467,18 @@ function renderMain() {
 		'<input id="f_challan" class="tin" inputmode="numeric" autocomplete="off" placeholder="—">' +
 
 		'<div class="flabel"><span class="num">३</span> माल कुठून निघाला?</div>' +
-		'<div class="fromgrid">' +
-		'<button id="fp_kp"><div class="b1">मेन स्टोअर<br>परसवाडा</div><div class="b2">प्लांटवरून माल आणला</div></button>' +
-		'<button id="fp_vac"><div class="b1">परिजात</div><div class="b2">दुकानातून माल नेला</div></button>' +
-		"</div>" +
+		'<div id="fromgrid" class="fromgrid"></div>' +
 		'<div id="dirhint" class="dirhint" style="display:none"></div>' +
 
-		'<div class="flabel"><span class="num">४</span> मालाचे नाव</div>' +
+		'<div class="flabel"><span class="num">४</span> माल व नग <span class="hint">(एकाहून जास्त माल चालेल)</span></div>' +
+		'<div id="lines" class="lines"></div>' +
 		'<div id="itemgrid" class="itemgrid"></div>' +
-		'<div id="itemsel" class="itemsel"><span>✓</span><span id="itemselname"></span></div>' +
-
-		'<div class="flabel"><span class="num">५</span> नग <span class="hint">(पोती / बॅगा)</span></div>' +
-		'<div class="qtyrow">' +
+		'<div class="qtyrow" style="margin-top:10px">' +
 		'<button class="qbtn" id="q_minus">−</button>' +
-		'<input id="f_qty" class="tin" inputmode="numeric" placeholder="0" autocomplete="off">' +
+		'<input id="f_qty" class="tin" inputmode="numeric" placeholder="नग" autocomplete="off">' +
 		'<button class="qbtn" id="q_plus">+</button>' +
 		"</div>" +
+		'<button id="addline" class="addline">+ हा माल जोडा</button>' +
 
 		'<div class="flabel"><span class="num">६</span> कुठे नेला? <span class="hint">(गाव — फक्त माहितीसाठी)</span></div>' +
 		'<input id="f_dest" class="tin" autocomplete="off" list="destlist" placeholder="गावाचे नाव">' +
@@ -483,21 +506,19 @@ function renderMain() {
 	$id("f_date").value = F.slip_date || today();
 	$id("f_today").onclick = function () { $id("f_date").value = today(); };
 	$id("f_challan").value = F.challan_no || "";
-	$id("f_qty").value = F.qty || "";
+	$id("f_qty").value = "";
 	$id("f_dest").value = F.destination || "";
 
 	var dl = $id("destlist");
 	getDests().forEach(function (d) { var o = document.createElement("option"); o.value = d; dl.appendChild(o); });
 
-	$id("fp_kp").onclick = function () { setFrom("Main Store Paraswada (KP)"); };
-	$id("fp_vac").onclick = function () { setFrom("Parijat (VAC)"); };
-	if (F.from_place) setFrom(F.from_place);
-
+	renderFromGrid();
 	renderItemGrid();
-	if (F.item) setItem(F.item, true);
+	renderLines();
 
 	$id("q_minus").onclick = function () { bump(-1); };
 	$id("q_plus").onclick = function () { bump(1); };
+	$id("addline").onclick = addLine;
 
 	$id("pbtn").onclick = function () { $id("f_photo").click(); };
 	$id("f_photo").onchange = function () {
@@ -520,15 +541,60 @@ function renderMain() {
 	renderList();
 }
 
+function renderFromGrid() {
+	var g = $id("fromgrid");
+	if (!g) return;
+	g.innerHTML = "";
+	getPlaces().forEach(function (p) {
+		var b = document.createElement("button");
+		b.innerHTML = '<div class="b1">' + p.label + '</div><div class="b2">' + (p.hint || "") + "</div>";
+		b.dataset.value = p.value;
+		b.onclick = function () { setFrom(p.value); };
+		g.appendChild(b);
+	});
+	if (F.from_place) setFrom(F.from_place);
+}
+
 function setFrom(v) {
 	F.from_place = v;
-	var kp = v.indexOf("Main Store") === 0;
-	$id("fp_kp").classList.toggle("on", kp);
-	$id("fp_vac").classList.toggle("on", !kp);
+	var leg = "";
+	getPlaces().forEach(function (p) { if (p.value === v) leg = p.leg; });
+	Array.prototype.forEach.call($id("fromgrid").children, function (c) { c.classList.toggle("on", c.dataset.value === v); });
 	var h = $id("dirhint");
 	h.style.display = "block";
-	h.className = "dirhint " + (kp ? "pur" : "sal");
-	h.textContent = kp ? "खरेदी — KP कडून माल आला" : "विक्री — KP ला माल गेला";
+	h.className = "dirhint " + (leg === "Purchase" ? "pur" : "sal");
+	h.textContent = leg === "Purchase" ? "खरेदी — KP कडून माल आला" : "विक्री — KP ला माल गेला";
+}
+
+function renderLines() {
+	var w = $id("lines");
+	if (!w) return;
+	w.innerHTML = "";
+	F.lines.forEach(function (l, i) {
+		var d = document.createElement("div");
+		d.className = "line";
+		var t = document.createElement("span");
+		t.className = "lt";
+		t.innerHTML = (l.item_label || l.item).replace(/</g, "&lt;") + " × <b>" + l.qty + "</b>";
+		var x = document.createElement("button");
+		x.className = "lx";
+		x.textContent = "✕";
+		x.onclick = function () { F.lines.splice(i, 1); renderLines(); };
+		d.appendChild(t);
+		d.appendChild(x);
+		w.appendChild(d);
+	});
+}
+
+function addLine() {
+	var qty = parseFloat($id("f_qty").value || "0");
+	if (!curItem) return toast("आधी मालाचे नाव निवडा");
+	if (!(qty > 0)) return toast("नग भरा");
+	F.lines.push({ item: curItem, item_label: itemLabel(curItem), qty: qty });
+	curItem = "";
+	$id("f_qty").value = "";
+	Array.prototype.forEach.call($id("itemgrid").children, function (c) { c.classList.remove("on"); });
+	renderLines();
 }
 
 function renderItemGrid() {
@@ -539,7 +605,7 @@ function renderItemGrid() {
 		var btn = document.createElement("button");
 		btn.textContent = itemLabel(code);
 		btn.dataset.code = code;
-		btn.onclick = function () { setItem(code); };
+		btn.onclick = function () { pickItem(code); };
 		g.appendChild(btn);
 	});
 	var more = document.createElement("button");
@@ -554,16 +620,19 @@ function renderItemGrid() {
 	g.appendChild(more);
 }
 
-function setItem(code, silent) {
-	F.item = code;
+function pickItem(code) {
+	curItem = code;
 	var g = $id("itemgrid");
-	Array.prototype.forEach.call(g.children, function (c) { c.classList.toggle("on", c.dataset.code === code); });
 	var found = false;
-	Array.prototype.forEach.call(g.children, function (c) { if (c.dataset.code === code) found = true; });
-	var sel = $id("itemsel");
-	if (!found) { $id("itemselname").textContent = itemLabel(code); sel.classList.add("show"); }
-	else sel.classList.remove("show");
-	if (!silent) $id("ovl").classList.remove("show");
+	Array.prototype.forEach.call(g.children, function (c) {
+		var on = c.dataset.code === code;
+		c.classList.toggle("on", on);
+		if (on) found = true;
+	});
+	if (!found) toast(itemLabel(code) + " ✓ — आता नग भरा");
+	$id("ovl").classList.remove("show");
+	var qi = $id("f_qty");
+	if (qi) qi.focus();
 }
 
 function renderOvlList(qstr) {
@@ -577,7 +646,7 @@ function renderOvlList(qstr) {
 		if (q && lbl.toLowerCase().indexOf(q) < 0 && it.name.toLowerCase().indexOf(q) < 0) return false;
 		var btn = document.createElement("button");
 		btn.innerHTML = lbl.replace(/</g, "&lt;") + ' <span class="uom">' + (it.stock_uom || "") + "</span>";
-		btn.onclick = function () { setItem(it.name); };
+		btn.onclick = function () { pickItem(it.name); };
 		list.appendChild(btn);
 		hits++;
 		return hits >= 30;
@@ -609,20 +678,22 @@ function shrinkImage(file) {
 }
 
 function saveSlip() {
+	/* a picked-but-not-yet-added line still counts — keeps the common
+	   one-item slip at the same number of taps as before */
+	if (curItem && parseFloat($id("f_qty").value || "0") > 0) addLine();
+
 	var date = $id("f_date").value;
 	var challan = $id("f_challan").value.trim();
-	var qty = parseFloat($id("f_qty").value || "0");
 	var dest = $id("f_dest").value.trim();
 	if (!date) return toast("१ — तारीख भरा");
 	if (!challan) return toast("२ — बिल नं भरा");
 	if (!F.from_place) return toast("३ — माल कुठून ते निवडा");
-	if (!F.item) return toast("४ — मालाचे नाव निवडा");
-	if (!(qty > 0)) return toast("५ — नग भरा");
+	if (!F.lines.length) return toast("४ — माल व नग जोडा");
 
 	var q = {
 		uid: uidNew(),
 		slip_date: date, challan_no: challan, from_place: F.from_place,
-		item: F.item, item_label: itemLabel(F.item), qty: qty, destination: dest,
+		items: F.lines.slice(), destination: dest,
 		has_photo: !!F.photo, state: "queued", server_name: "", err: "",
 		created_at: Date.now()
 	};
@@ -631,8 +702,8 @@ function saveSlip() {
 		if (photo) return idbPut("photos", { uid: q.uid, blob: photo });
 	}).then(function () {
 		pushDest(dest);
-		/* sticky fields for the next slip of the same trip: date, from, item */
-		F.photo = null; F.qty = ""; F.destination = "";
+		/* sticky fields for the next slip of the same trip: date + from-place */
+		F.photo = null; F.lines = []; curItem = ""; F.destination = "";
 		var num = parseInt(challan, 10);
 		F.challan_no = isNaN(num) ? "" : String(num + 1);
 		F.slip_date = date;
@@ -666,9 +737,10 @@ function renderList() {
 			else if (q.state === "error") badge = '<span class="badge err">अडचण — पुन्हा जाईल</span>';
 			else if (q.state === "synced") badge = '<span class="badge ok">पोहोचली ✓ फोटो बाकी</span>';
 			else badge = '<span class="badge ok">पोहोचली ✓</span>';
-			var dir = (q.from_place || "").indexOf("Main Store") === 0 ? "खरेदी" : "विक्री";
+			var dir = (q.from_place || "").indexOf("Main Store Paraswada") === 0 ? "खरेदी" : "विक्री";
+			var goods = (q.items || []).map(function (l) { return (l.item_label || l.item) + "×" + l.qty; }).join(", ") || (q.item_label || q.item || "");
 			d.innerHTML =
-				'<div class="grow"><div class="qi1">' + (q.item_label || q.item) + " — " + q.qty + " नग</div>" +
+				'<div class="grow"><div class="qi1">' + goods + "</div>" +
 				'<div class="qi2">' + niceDate(q.slip_date) + " · बिल " + q.challan_no + " · " + dir +
 				(q.destination ? " · " + q.destination : "") +
 				(q.server_name ? " · " + q.server_name : "") + "</div></div>" + badge;
@@ -697,7 +769,12 @@ function boot() {
 	}
 	if (!LS.vacslip_token) { renderPair(""); return; }
 	renderMain();
-	refreshBoot(false).then(function () { renderItemGrid(); if (F.item) setItem(F.item, true); var b = getBoot(); if (b) { var w = document.querySelector(".hdr .who"); if (w) w.textContent = b.driver || ""; } }).catch(function (e) { if (e.auth) needPair(); });
+	refreshBoot(false).then(function () {
+		renderFromGrid();
+		renderItemGrid();
+		var b = getBoot();
+		if (b) { var w = document.querySelector(".hdr .who"); if (w) w.textContent = b.driver || ""; }
+	}).catch(function (e) { if (e.auth) needPair(); });
 	syncNow();
 }
 

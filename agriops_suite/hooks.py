@@ -153,7 +153,10 @@ fixtures = [
                     # Driver Slip PWA (/slip): the phone-captured transport-log
                     # record. Series DRS- ("Expression (old style)" — format:
                     # autoname's bare {#####} shares ONE global counter).
+                    # Multi-item: one slip = one document = one invoice with
+                    # N lines; child table carries item/qty (+ office rate).
                     "Driver Slip",
+                    "Driver Slip Item",
                 ],
             ]
         },
@@ -196,10 +199,6 @@ fixtures = [
                     "Payment Entry-busy_voucher_ref",
                     "Payment Entry-cd_scheme",
                     "Journal Entry-cd_scheme",
-                    # Alias on Customer — alternate spelling of the same person kept
-                    # from de-dup merges (owner rule 2026-07-16: merged record's name
-                    # survives here), so counter staff can still find them by it.
-                    "Customer-custom_alias",
                     # Village on Customer — backfilled from BusyWin
                     # MasterAddressInfo.Address1, which the migration bridge dropped in
                     # normalize.py before the bundle was built. Deliberately a Customer
