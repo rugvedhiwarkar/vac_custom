@@ -124,10 +124,21 @@
   "doctype": "Client Script",
   "dt": "Payment Entry",
   "enabled": 1,
-  "modified": "2026-07-17 09:27:26.182875",
+  "modified": "2026-07-17 09:57:33.826741",
   "module": "AgriOps Suite",
   "name": "VAC Print Buttons - Payment Entry",
-  "script": "// VAC print buttons — generated per doctype by cs_install.py from this template.\n// Mirrors the live \"VAC Print Buttons - Sales Invoice\" Client Script: a \"Print\"\n// button group calling frappe.utils.print with the blank letterhead (the branded\n// letterheads would double up on the bill's own printed header).\n// Delivered as a Client Script (a DB record) so it applies without a deploy.\nfrappe.ui.form.on(\"Payment Entry\", {\n\trefresh(frm) {\n\t\tif (frm.is_new()) return;\n\t\tconst LETTERHEAD = \"Blank (VAC Bill Formats)\";\n\t\t// [label, print format] — Bank of India transfer application; hidden on contra\n\t\tconst buttons = frm.doc.payment_type === \"Internal Transfer\"\n\t\t\t? []\n\t\t\t: [[\"RTGS / NEFT Form\", \"VAC RTGS NEFT Request\"]];\n\t\tbuttons.forEach(([label, fmt]) => {\n\t\t\tfrm.add_custom_button(\n\t\t\t\t__(label),\n\t\t\t\t() => frappe.utils.print(frm.doc.doctype, frm.doc.name, fmt, LETTERHEAD),\n\t\t\t\t__(\"Print\")\n\t\t\t);\n\t\t});\n\t},\n});\n",
+  "script": "// VAC print buttons — generated per doctype by cs_install.py from this template.\n// Mirrors the live \"VAC Print Buttons - Sales Invoice\" Client Script: a \"Print\"\n// button group calling frappe.utils.print with the blank letterhead (the branded\n// letterheads would double up on the bill's own printed header).\n// Delivered as a Client Script (a DB record) so it applies without a deploy.\nfrappe.ui.form.on(\"Payment Entry\", {\n\trefresh(frm) {\n\t\tif (frm.is_new()) return;\n\t\tconst LETTERHEAD = \"Blank (VAC Bill Formats)\";\n\t\t// [label, print format] — BOI transfer application / deposit slip by payment_type\n\t\tconst buttons = frm.doc.payment_type === \"Internal Transfer\"\n\t\t\t? [[\"Deposit Slip\", \"VAC Deposit Slip PE\"]]\n\t\t\t: [[\"RTGS / NEFT Form\", \"VAC RTGS NEFT Request\"]];\n\t\tbuttons.forEach(([label, fmt]) => {\n\t\t\tfrm.add_custom_button(\n\t\t\t\t__(label),\n\t\t\t\t() => frappe.utils.print(frm.doc.doctype, frm.doc.name, fmt, LETTERHEAD),\n\t\t\t\t__(\"Print\")\n\t\t\t);\n\t\t});\n\t},\n});\n",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Bank Deposit Voucher",
+  "enabled": 1,
+  "modified": "2026-07-17 09:57:34.680417",
+  "module": "AgriOps Suite",
+  "name": "VAC Print Buttons - Bank Deposit Voucher",
+  "script": "// VAC print buttons — generated per doctype by cs_install.py from this template.\n// Mirrors the live \"VAC Print Buttons - Sales Invoice\" Client Script: a \"Print\"\n// button group calling frappe.utils.print with the blank letterhead (the branded\n// letterheads would double up on the bill's own printed header).\n// Delivered as a Client Script (a DB record) so it applies without a deploy.\nfrappe.ui.form.on(\"Bank Deposit Voucher\", {\n\trefresh(frm) {\n\t\tif (frm.is_new()) return;\n\t\tconst LETTERHEAD = \"Blank (VAC Bill Formats)\";\n\t\t// [label, print format] — BOI pay-in slip with the counted denominations\n\t\tconst buttons = [[\"Deposit Slip\", \"VAC Deposit Slip\"]];\n\t\tbuttons.forEach(([label, fmt]) => {\n\t\t\tfrm.add_custom_button(\n\t\t\t\t__(label),\n\t\t\t\t() => frappe.utils.print(frm.doc.doctype, frm.doc.name, fmt, LETTERHEAD),\n\t\t\t\t__(\"Print\")\n\t\t\t);\n\t\t});\n\t},\n});\n",
   "view": "Form"
  }
 ]
