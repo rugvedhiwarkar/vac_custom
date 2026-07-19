@@ -763,3 +763,22 @@ html[data-vac-theme="nature"] .codex-editor__redactor .ce-header::before {
 	background: var(--primary);
 	opacity: 0.85;
 }
+
+/* ====================================================================
+   POS (Point of Sale) summary surfaces — dark-mode fix.
+   ERPNext core (erpnext.bundle) paints three summary surfaces with a raw
+   light ramp step (--gray-50) or a literal `white`; none is mode-aware, so
+   they render as glaring light panels on the dark desk. The sibling POS
+   cards use var(--fg-color) and already track the theme — re-point these to
+   semantic tokens so they match. Dark-only; light mode reads fine as-is.
+   Verified live on prod 2026-07-19: --gray-50 resolved to #eef4f1 in dark.
+   ==================================================================== */
+/* empty-state placeholders (no order selected / customer has no history) */
+html[data-vac-theme][data-theme="dark"] .point-of-sale-app > .past-order-summary > .no-summary-placeholder,
+html[data-vac-theme][data-theme="dark"] .point-of-sale-app > .customer-cart-container > .customer-section > .customer-transactions > .no-transactions-placeholder {
+	background-color: var(--surface-gray-2) !important;
+}
+/* loaded-order items area (core hardcodes `background: white`) */
+html[data-vac-theme][data-theme="dark"] .point-of-sale-app > .past-order-summary > .invoice-summary-wrapper > .abs-container > .order-summary-container {
+	background: var(--fg-color) !important;
+}
