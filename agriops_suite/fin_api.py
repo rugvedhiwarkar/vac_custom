@@ -28,7 +28,17 @@ import json
 import frappe
 from frappe.utils import getdate
 
-ROLES = ("System Manager", "Accounts Manager")
+# Owner-only: the cockpit is the whole books laid bare, so access is a
+# user allowlist in code — roles deliberately do NOT grant it (any System
+# Manager could hand out a role; changing this list takes a git deploy).
+# claude-agent is the automation identity — it already reads the ledger
+# through the standard API, so listing it grants nothing new; drop the
+# line to lock tooling out too.
+ALLOWED_USERS = (
+	"administrator",
+	"hiwarkarvijay@gmail.com",  # Vijay Hiwarkar (director)
+	"claude-agent@vijayagrocentre.frappe.cloud",  # automation / verification
+)
 COMPANY = "Vijay Agro Centre"
 PCV = "Period Closing Voucher"
 CACHE_SECONDS = 600
@@ -87,7 +97,8 @@ PROPOSED_ACTIONS = [
 
 
 def _guard():
-	frappe.only_for(ROLES)
+	if (frappe.session.user or "").lower() not in ALLOWED_USERS:
+		frappe.throw("The Financial Cockpit is restricted.", frappe.PermissionError)
 
 
 def _abbr():
