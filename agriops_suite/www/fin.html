@@ -577,8 +577,10 @@ function fyOf(i) {
 }
 var CLOSURES = [];
 function pplAt(i) {
-	var f = fyOf(i), p = PROFIT(FYSTART[f], i);
-	CLOSURES.forEach(function (c) { if (fyOf(c[0]) === f && i >= c[0]) p -= c[1]; });
+	// profit since the books opened, minus whatever the closing vouchers have
+	// already moved into capital — correct whether or not year-ends are closed
+	var p = PROFIT(0, i);
+	CLOSURES.forEach(function (c) { if (i >= c[0]) p -= c[1]; });
 	return p;
 }
 function fmtIN(v) { return "₹" + Math.round(v).toLocaleString("en-IN"); }
@@ -1277,7 +1279,7 @@ var bsCtx = null;
 var bsState = { asof: 0, cmpTo: 0, on: true, preset: "today" };
 var bsView = "g";
 var SEGS_A = [["Stock", "stock"], ["Receivables", "ar"], ["Cash & bank", "cash"], ["Deposits", "depo"], ["Fixed assets", "fixed"]];
-var SEGS_F = [["Own capital", "eq"], ["Profit, this FY", "__ppl"], ["Supplier credit", "ap"],
+var SEGS_F = [["Own capital", "eq"], ["Profit unclosed to capital", "__ppl"], ["Supplier credit", "ap"],
 	["Goods recd, not billed", "sliab"], ["GST & duties", "duty"]];
 function balOf(b, i) { return b === "__ppl" ? pplAt(i) : (b === "eq" ? BAL("eq", i) - pplAt(i) * 0 : BAL(b, i)); }
 function eqExPpl(i) { return BAL("eq", i); }
@@ -1370,7 +1372,8 @@ function renderBS() {
 	});
 	document.getElementById("bs-adj-note").textContent = "Also on the asset side: tax assets " +
 		fmtL(BAL("tax", idx)) + " and suspense/temporary " + fmtL(BAL("susp", idx)) +
-		" (netted above). Click a name in the key to see the accounts inside.";
+		" (netted above). \"Profit unclosed\" = earnings the closing vouchers haven't yet moved into capital. " +
+		"Click a name in the key to see the accounts inside.";
 
 	renderParties();
 
