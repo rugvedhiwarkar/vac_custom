@@ -34,7 +34,7 @@ self.addEventListener("fetch", function (e) {
 	if (url.origin !== self.location.origin) return;
 
 	if (url.pathname === "/slip" || url.pathname === "/slip/") {
-		e.respondWith(staleWhileRevalidate(e.request));
+		e.respondWith(staleWhileRevalidate(e));
 		return;
 	}
 	if (url.pathname === "/api/method/agriops_suite.slip.manifest" ||
@@ -45,14 +45,17 @@ self.addEventListener("fetch", function (e) {
 	/* all other requests: not our business */
 });
 
-function staleWhileRevalidate(req) {
+function staleWhileRevalidate(e) {
+	var req = e.request;
 	return caches.open(CACHE).then(function (c) {
 		return c.match("/slip").then(function (hit) {
 			var net = fetch(req).then(function (res) {
 				if (res && res.ok) c.put("/slip", res.clone());
 				return res;
 			}).catch(function () { return null; });
-			if (hit) return hit;
+			// keep the worker alive until the background refresh resolves, so the
+			// cached shell is actually updated (was detached from the event lifetime)
+			if (hit) { e.waitUntil(net); return hit; }
 			return net.then(function (res) {
 				return res || new Response("<h1>ऑफलाइन</h1>", { status: 503, headers: { "Content-Type": "text/html" } });
 			});

@@ -13,9 +13,16 @@
 // per-column formatters already handle their empty cells (is_blank_line).
 // ============================================================================
 (function () {
+	var tries = 0;
 	function patch() {
 		var fs = window.erpnext && erpnext.financial_statements;
-		if (!fs || !fs.is_blank_row) return setTimeout(patch, 500);
+		if (!fs || !fs.is_blank_row) {
+			// erpnext.financial_statements only loads on a Financial Statement report
+			// view; on every other page it never appears. Cap the poll so this isn't
+			// an endless 500ms timer for the life of the tab.
+			if (++tries > 40) return;
+			return setTimeout(patch, 500);
+		}
 		if (fs.__vac_blankrow_patched) return;
 		fs.__vac_blankrow_patched = true;
 		var orig = fs.is_blank_row;

@@ -83,7 +83,7 @@ finscope.apply_hidden = function (report) {
 	// every render path (create AND refresh) carry the saved widths.
 	report.columns = vis.map((c) => {
 		var out = ren[c.fieldname]
-			? Object.assign({}, c, { label: ren[c.fieldname], name: ren[c.fieldname], content: ren[c.fieldname] })
+			? Object.assign({}, c, { label: ren[c.fieldname], name: frappe.utils.escape_html(ren[c.fieldname]), content: frappe.utils.escape_html(ren[c.fieldname]) })
 			: c;
 		if (savedW[c.fieldname]) { if (out === c) out = Object.assign({}, c); out.width = savedW[c.fieldname]; }
 		return out;
@@ -189,8 +189,11 @@ finscope.pin_kind = function (row, columns) {
 		if (typeof v !== "string") continue;
 		var s = v.trim().replace(/^['"]+/, "").replace(/['"]+$/, "").toLowerCase();
 		if (!s) continue;
-		if (/^opening\b/.test(s)) return "top";
-		if (/^(total|closing|grand total|net total|difference)\b/.test(s)) return "bottom";
+		// Whole-label match only: a data row whose first cell is a NAME beginning
+		// with one of these words (e.g. "Total Care Fungicide", "Opening Stock Mix")
+		// must not be mistaken for a pinned subtotal row and yanked out of its group.
+		if (/^opening( balance)?(\s*\(.*\))?\s*$/.test(s)) return "top";
+		if (/^(total|closing|grand total|net total|difference)( balance)?(\s*\(.*\))?\s*$/.test(s)) return "bottom";
 		return false;
 	}
 	return false;
@@ -387,7 +390,7 @@ finscope.dual_party_get_data = function (txt) {
 		frappe.db.get_link_options("Customer", txt),
 		frappe.db.get_link_options("Supplier", txt),
 	]).then(function (res) {
-		var seen = {}, out = [];
+		var seen = Object.create(null), out = [];  // not {}: a party named "toString"/"__proto__" must not collide with Object.prototype
 		[["Customer", res[0]], ["Supplier", res[1]]].forEach(function (pair) {
 			(pair[1] || []).forEach(function (o) {
 				var v = (o && o.value !== undefined) ? o.value : o;

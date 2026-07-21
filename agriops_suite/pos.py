@@ -30,6 +30,7 @@ POPULARITY_JOIN = """
             FROM `tabSales Invoice Item` sii
             INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
             WHERE si.docstatus = 1
+              AND si.company = %(company)s
               AND si.posting_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
             GROUP BY sii.item_code
         ) pop ON pop.item_code = item.name
@@ -38,8 +39,8 @@ POPULARITY_JOIN = """
 
 @frappe.whitelist()
 def get_items(start, page_length, price_list, item_group, pos_profile, search_term=""):
-    warehouse, hide_unavailable_items = frappe.db.get_value(
-        "POS Profile", pos_profile, ["warehouse", "hide_unavailable_items"]
+    warehouse, hide_unavailable_items, company = frappe.db.get_value(
+        "POS Profile", pos_profile, ["warehouse", "hide_unavailable_items", "company"]
     )
 
     result = []
@@ -101,7 +102,7 @@ def get_items(start, page_length, price_list, item_group, pos_profile, search_te
             bin_join_condition=bin_join_condition,
             popularity_join=POPULARITY_JOIN,
         ),
-        {"warehouse": warehouse},
+        {"warehouse": warehouse, "company": company},
         as_dict=1,
     )
 

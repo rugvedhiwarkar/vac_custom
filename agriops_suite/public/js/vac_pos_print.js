@@ -12,19 +12,27 @@ window.vac_wa = window.vac_wa || {
 		return ph;
 	},
 	async pdf_link(doctype, name, fmt) {
-		const fname = (name + " " + fmt + ".pdf").replace(/[^\w\- .]/g, "");
+// Public so the (logged-out) WhatsApp recipient can open it — but the URL must
+		// NOT be guessable from the sequential invoice number, or other customers'
+		// bills could be enumerated. Put a random token in the filename; the LIKE
+		// lookup below reuses the existing file on re-share (no duplicate pile-up).
+		const base = (name + " " + fmt).replace(/[^\w\- .]/g, "");
 		const ex = await frappe.call({
 			method: "frappe.client.get_list",
 			args: {
 				doctype: "File",
 				filters: { attached_to_doctype: doctype, attached_to_name: name,
-					file_name: fname, is_private: 0 },
+					file_name: ["like", base + " %.pdf"], is_private: 0 },
 				fields: ["file_url"], limit_page_length: 1,
 			},
 		});
 		if (ex.message && ex.message.length) {
 			return frappe.urllib.get_full_url(ex.message[0].file_url);
 		}
+		const token = (self.crypto && crypto.randomUUID)
+			? crypto.randomUUID().replace(/-/g, "")
+			: (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
+		const fname = base + " " + token + ".pdf";
 		const pdf = await fetch(frappe.urllib.get_full_url(
 			`/api/method/frappe.utils.print_format.download_pdf?doctype=${encodeURIComponent(doctype)}` +
 			`&name=${encodeURIComponent(name)}&format=${encodeURIComponent(fmt)}&no_letterhead=1`));
@@ -61,7 +69,7 @@ window.vac_wa = window.vac_wa || {
 					change: () => {
 						const v = d.get_value("to");
 						let n = v === "Other number" ? "" : cm;
-						const m = v.match(/\((\d[\d ]*)\)$/);
+						const m = v.match(/\(([+\d][\d ]*)\)$/);  // allow a leading + so "+91…" staff numbers match (norm() strips it)
 						if (m) n = m[1];
 						d.set_value("number", n);
 					} },

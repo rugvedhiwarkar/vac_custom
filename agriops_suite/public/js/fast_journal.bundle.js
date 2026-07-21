@@ -210,7 +210,11 @@
     else if (vt === 'Receipt') acct = d.get_value('to_account');
     var dt = d.drawerType || {};
     var isBank = acct && dt[acct] === 'Bank';
-    if (d.fields_dict.reference_no) d.set_df_property('reference_no', 'hidden', isBank ? 0 : 1);
+    if (d.fields_dict.reference_no) {
+      d.set_df_property('reference_no', 'hidden', isBank ? 0 : 1);
+      // never carry a bank ref (UTR/cheque) onto a cash voucher after switching drawer
+      if (!isBank && d.get_value('reference_no')) d.set_value('reference_no', '');
+    }
   }
 
   // current balance of an account (read-only), cached per dialog, shown in the preview
@@ -310,6 +314,7 @@
   }
 
   function fv_submit(d, cfg) {
+    if (d.__posting) return;  // reentrancy guard: a second Enter / key-repeat must not double-post
     var vt = fv_code(d.get_value('vtype'));
     var amt = flt(d.get_value('amount'));
     if (!amt || amt <= 0) { frappe.show_alert({ message: 'Amount must be greater than zero', indicator: 'red' }); return; }
@@ -348,10 +353,12 @@
       if (!payload.from_account || !payload.to_account) { frappe.show_alert({ message: 'Both accounts are required', indicator: 'red' }); return; }
     }
     var doPost = function () {
+      d.__posting = true;  // set BEFORE the async call so a second Enter is blocked at fv_submit
       if (d.disable_primary_action) d.disable_primary_action();
       frappe.call({
         method: 'fast_voucher_post', args: payload,
         callback: function (r) {
+          d.__posting = false;
           if (d.enable_primary_action) d.enable_primary_action();
           if (r && r.message && r.message.name) {
             var m = r.message;
@@ -362,7 +369,7 @@
             fv_after_post(d);
           }
         },
-        error: function () { if (d.enable_primary_action) d.enable_primary_action(); }
+        error: function () { d.__posting = false; if (d.enable_primary_action) d.enable_primary_action(); }
       });
     };
     if (amt >= (cfg.amount_confirm_threshold || 100000)) {

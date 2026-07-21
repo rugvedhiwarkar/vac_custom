@@ -70,6 +70,11 @@ def make_counterparty(role, name):
     other_role = "Supplier" if role == "Customer" else "Customer"
     if not frappe.has_permission(other_role, "create"):
         frappe.throw(_("Not permitted to create {0}").format(_(other_role)), frappe.PermissionError)
+    # also require READ on the SOURCE party: get_doc does not enforce it, and the
+    # counterpart copies gstin/pan/tax_id, so without this a create-on-one-role
+    # user could exfiltrate a party they cannot otherwise read.
+    if not frappe.has_permission(role, "read", doc=name):
+        frappe.throw(_("Not permitted to read {0} {1}").format(_(role), name), frappe.PermissionError)
 
     src = frappe.get_doc(role, name)
 

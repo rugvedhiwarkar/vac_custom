@@ -88,6 +88,10 @@
 		function q(id) {
 			return wrap.querySelector("#" + id);
 		}
+		// Counter (staff) view is VAC-specific: scope its counts to the default company
+		// so KP/KFC/VSS documents don't inflate "bills today" / "tills open".
+		var dco = (frappe.defaults && frappe.defaults.get_default) ? frappe.defaults.get_default("company") : null;
+		var coFilter = (who === "staff" && dco) ? [["company", "=", dco]] : [];
 		var h = new Date().getHours();
 		var period = h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
 		var fn = ((frappe.session.user_fullname || "") + "").trim().split(" ")[0];
@@ -112,20 +116,20 @@
 		if (m && q("vg-sync")) q("vg-sync").textContent = m.format("h:mm A");
 
 		if (q("vg-tills-tag"))
-			count("POS Opening Entry", [
+			count("POS Opening Entry", coFilter.concat([
 				["status", "=", "Open"],
 				["docstatus", "=", 1],
-			]).then(function (n) {
+			])).then(function (n) {
 				if (n != null && q("vg-tills-tag"))
 					q("vg-tills-tag").innerHTML =
 						"<b>" + n + "</b> " + (n === 1 ? "till" : "tills") + " open";
 			});
 		if (q("vg-bills-tag"))
-			count("Sales Invoice", [
+			count("Sales Invoice", coFilter.concat([
 				["posting_date", "=", frappe.datetime.get_today()],
 				["docstatus", "=", 1],
 				["is_return", "=", 0],
-			]).then(function (n) {
+			])).then(function (n) {
 				if (n != null && q("vg-bills-tag"))
 					q("vg-bills-tag").innerHTML =
 						"<b>" + n + "</b> " + (n === 1 ? "bill" : "bills") + " so far today";

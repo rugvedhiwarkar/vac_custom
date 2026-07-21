@@ -182,9 +182,12 @@ def verify(before=None):
 def _patch_ledgers(dt, old, new, targets):
     patched = 0
     for table, tcol, ncol in targets:
-        patched += frappe.db.sql(
+        frappe.db.sql(
             f"UPDATE `tab{table}` SET `{ncol}`=%s WHERE `{tcol}`=%s AND `{ncol}`=%s",
             (new, dt, old))
+        # sql() returns () for an UPDATE (not a rowcount) — `int += ()` would raise
+        # TypeError and abort apply/rollback. Read the affected rows off the cursor.
+        patched += frappe.db._cursor.rowcount or 0
     return patched
 
 def run(dry_run=True):
@@ -193,7 +196,11 @@ def run(dry_run=True):
     before = snapshot()
     print(f"[pre] GL debit={before['gl_debit']:.2f} credit={before['gl_credit']:.2f} "
           f"orphans={before['orphans']}")
-    mapping = build_map(persist=True)
+    # Load the reviewed map if it already exists; only build+persist on the very
+    # first run. Previously this rebuilt from CURRENT DB state every call, so a
+    # re-run (or post-apply dry-run) overwrote the good map with an all-identity
+    # one — silently destroying rollback. To force a rebuild, delete the map file.
+    mapping = _load_map()
 
     if dry_run:
         # show first/last of each doctype and stop
@@ -229,7 +236,16 @@ def run(dry_run=True):
 
 def rollback():
     """Swap new -> old using the persisted map (same patch logic, reversed)."""
-    mapping = _load_map()
+    # Abort loudly if the map is gone: _load_map would rebuild it from the already
+    # renamed DB (all old==new), so rollback would restore NOTHING while printing
+    # success. The map is the only record of the original names.
+    if not os.path.exists(MAP_FILE):
+        frappe.throw(
+            f"No rename map at {MAP_FILE} — cannot roll back. Restore the map file "
+            f"(or a site backup); rebuilding it from renamed docs yields a no-op map."
+        )
+    with open(MAP_FILE) as f:
+        mapping = json.load(f)
     targets = _active_patch_targets()
     frappe.flags.in_migrate = True
     done = 0

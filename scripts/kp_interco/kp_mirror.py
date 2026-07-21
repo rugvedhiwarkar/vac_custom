@@ -73,7 +73,11 @@ def mirror_name(src_name, kind):
     if kind == "pe":
         return "KPJE-" + src_name
     swap = {"si": ("PI", "KPSI"), "pi": ("SI", "KPPI"), "je": ("JE", "KPJE")}[kind]
-    assert src_name.startswith(swap[0]), f"unexpected source name {src_name}"
+    # explicit raise, not assert: -O would strip the assert and then slice a wrong
+    # prefix length, producing a garbage (non-idempotent) mirror name. Callers in
+    # go() catch this and skip the one doc instead of aborting the whole run.
+    if not src_name.startswith(swap[0]):
+        raise ValueError(f"unexpected source name {src_name} (expected {swap[0]} prefix)")
     return swap[1] + src_name[len(swap[0]):]
 
 
@@ -367,6 +371,13 @@ def make_je(src_name):
 
 def make_pe_je(pe):
     s = frappe.get_doc("Payment Entry", pe["name"])
+    # Deductions (TDS / write-off / rounding) move the party ledger by more than
+    # paid_amount, and their own GL leg is not mirrored here — so a source PE with
+    # deductions would break inter-co symmetry. Atypical on KP goods trade: HOLD
+    # it for manual mapping rather than post a silently-wrong mirror.
+    ded = float(getattr(s, "total_deductions", 0) or 0)
+    if abs(ded) > 0.005:
+        return None, f"source {s.name} carries deductions {ded} (TDS/write-off) — mirror manually"
     amt = float(s.paid_amount)
     # VAC Pay->supplier KP: KP receives cash: Dr Cash, Cr VAC-customer (receivable down)
     # VAC Receive<-customer KP: KP pays cash: Cr Cash, Dr VAC-supplier (payable down)
@@ -384,7 +395,7 @@ def make_pe_je(pe):
         "user_remark": f"Mirror of VAC {s.name} ({s.payment_type} {amt}) (KP inter-company books)",
         "accounts": rows,
     })
-    return d
+    return d, None
 
 
 def make_opening(amount):
@@ -479,7 +490,11 @@ def go(src, limit=None, types=("opening", "si", "pi", "je", "pe")):
     for kind, r in inv:
         if limit and n >= limit:
             break
-        name = mirror_name(r["name"], kind)
+        try:
+            name = mirror_name(r["name"], kind)
+        except ValueError as e:
+            log(f"HELD {r['name']}: {e}")
+            continue
         doc, hold = (make_si if kind == "si" else make_pi)(r["name"])
         if hold:
             log(f"HELD {r['name']}: {hold}")
@@ -490,7 +505,11 @@ def go(src, limit=None, types=("opening", "si", "pi", "je", "pe")):
         for r in src["je"]:
             if limit and n >= limit:
                 break
-            name = mirror_name(r["name"], "je")
+            try:
+                name = mirror_name(r["name"], "je")
+            except ValueError as e:
+                log(f"HELD {r['name']}: {e}")
+                continue
             doc, hold = make_je(r["name"])
             if hold:
                 log(f"HELD {r['name']}: {hold}")
@@ -501,7 +520,11 @@ def go(src, limit=None, types=("opening", "si", "pi", "je", "pe")):
         for r in src["pe"]:
             if limit and n >= limit:
                 break
-            push(make_pe_je(r), mirror_name(r["name"], "pe"))
+            doc, hold = make_pe_je(r)
+            if hold:
+                log(f"HELD {r['name']}: {hold}")
+                continue
+            push(doc, mirror_name(r["name"], "pe"))
             n += 1
     log(f"\nGO summary: {stats}")
     for name, err in failures[:30]:
@@ -559,21 +582,28 @@ def wipe(names=None):
     otherwise only the listed mirror names. Safe by construction: the site
     guard already refused non-staging sites, and only KP-company documents are
     touched — VAC's books are never in scope."""
-    n = 0
+    n, failed = 0, 0
     for dt in ["Sales Invoice", "Purchase Invoice", "Journal Entry"]:
         flt = {"company": KP}
         if names:
             flt["name"] = ["in", names]
         for name in [r.name for r in frappe.get_all(
                 dt, filters=flt, order_by="posting_date desc, name desc")]:
-            doc = frappe.get_doc(dt, name)
-            if doc.docstatus == 1:
-                doc.cancel()
-            frappe.delete_doc(dt, name, force=1, ignore_permissions=True)
-            frappe.db.commit()
-            n += 1
-            log(f"wiped {dt} {name}")
-    log(f"wipe done: {n} docs removed")
+            # per-doc guard: one cancel/delete failure (e.g. a period lock) must not
+            # abort the whole wipe and strand the KP company half-deleted.
+            try:
+                doc = frappe.get_doc(dt, name)
+                if doc.docstatus == 1:
+                    doc.cancel()
+                frappe.delete_doc(dt, name, force=1, ignore_permissions=True)
+                frappe.db.commit()
+                n += 1
+                log(f"wiped {dt} {name}")
+            except Exception as e:
+                frappe.db.rollback()
+                failed += 1
+                log(f"WIPE FAIL {dt} {name}: {e}")
+    log(f"wipe done: {n} docs removed, {failed} failed")
 
 
 def gap(src):
@@ -649,9 +679,13 @@ def main():
     args = ap.parse_args()
 
     # ---- HARD STAGING GUARD ----
-    assert "staging" in args.site, (
-        "REFUSED: this script only runs against a staging site. The production "
-        "run is a separate user-gated step per docs/kp_intercompany_plan.md §4.")
+    # Explicit exit, NOT assert: `python -O` / PYTHONOPTIMIZE strips assert
+    # statements, which would remove the ONLY thing keeping this write-capable
+    # script off production.
+    if "staging" not in args.site:
+        sys.exit(
+            "REFUSED: this script only runs against a staging site. The production "
+            "run is a separate user-gated step per docs/kp_intercompany_plan.md §4.")
 
     frappe.init(site=args.site)
     frappe.connect()

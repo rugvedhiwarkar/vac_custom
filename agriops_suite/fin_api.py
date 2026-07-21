@@ -419,7 +419,7 @@ def group_summary(roots, mode="bal", as_of=None, from_date=None, to_date=None,
 # ================= Phase 2: ledger =================
 
 @frappe.whitelist(methods=["GET"])
-def ledger(kind, name, from_date, to_date, vtype=None, mode="rows", start=0):
+def ledger(kind, name, from_date, to_date, vtype=None, mode="rows", start=0, party_type=None):
 	"""Account or party register.
 
 	mode 'rows': voucher rows, paged 500, with page-start running balance.
@@ -447,6 +447,15 @@ def ledger(kind, name, from_date, to_date, vtype=None, mode="rows", start=0):
 			frappe.throw("Unknown party")
 		who = "gl.party = %s"
 		params.append(name)
+		# A dual-role peer (a Customer AND a Supplier of the same name, e.g.
+		# "Krushiyog Plant, Paraswada") otherwise nets its Debtors and Creditors
+		# GL into one figure. An optional party_type scopes the register to one
+		# side; absent = the combined view (unchanged default).
+		if party_type:
+			if party_type not in ("Customer", "Supplier"):
+				frappe.throw("party_type must be Customer or Supplier")
+			who += " and gl.party_type = %s"
+			params.append(party_type)
 		is_pl = False
 	else:
 		frappe.throw("kind must be account or party")
@@ -605,10 +614,15 @@ def item_ledger(item, from_date, to_date):
 		from `tabStock Ledger Entry`
 		where company = %s and is_cancelled = 0 and item_code = %s
 			and posting_date between %s and %s
-		order by posting_date, creation limit 500""",
+		order by posting_date desc, creation desc limit 500""",
 		(COMPANY, item, f, t),
 	)
-	return {"item": item, "rows": [
+	# Take the NEWEST 500 (was oldest 500 — a fast-moving item then showed a
+	# months-old "current" balance); reverse to render oldest -> newest so the
+	# last row's running qty is the real on-hand. has_more flags the truncation.
+	truncated = len(rows) >= 500
+	rows = list(rows)[::-1]
+	return {"item": item, "has_more": truncated, "rows": [
 		[str(r[0]), float(r[1] or 0), float(r[2] or 0), int(r[3] or 0), r[4], r[5],
 			"" if (r[6] or "").startswith("Main Store") else (r[6] or "").replace(f" - {_abbr()}", "")]
 		for r in rows]}
