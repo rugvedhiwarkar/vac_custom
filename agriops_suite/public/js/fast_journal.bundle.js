@@ -17,7 +17,19 @@
   function fv_flow(vt) {
     if (vt === 'Payment') return ['party', 'mode', 'from_account', 'amount'];
     if (vt === 'Receipt') return ['party', 'mode', 'to_account', 'amount'];
+    if (vt === 'Employee Advance' || vt === 'Interparty Expense') return ['party', 'mode', 'from_account', 'amount'];
+    if (vt === 'Expense') return ['mode', 'from_account', 'to_account', 'amount'];
     return ['from_account', 'to_account', 'amount']; // Contra / Journal
+  }
+
+  // display label -> backend vtype code (spaces -> underscore): 'Employee Advance' -> 'employee_advance'
+  function fv_code(vt) { return (vt || '').toLowerCase().replace(/ /g, '_'); }
+
+  // interparty: the recoverable head configured for a related-party customer (from cfg map)
+  function fv_ip_head(d, party) {
+    if (!party) return null;
+    var rows = (d.cfg.interparty_parties || []).filter(function (p) { return p.party === party; });
+    return rows.length ? rows[0].account : null;
   }
 
   /* Party-type support (Customer / Supplier / Employee / Shareholder).
@@ -113,30 +125,44 @@
     }
   }
 
-  function fv_acct_query(d) {
+  function fv_acct_query(d, fieldname) {
     var vt = d.get_value('vtype') || 'Payment';
     var f = { company: 'Vijay Agro Centre', is_group: 0, disabled: 0 };
     f.name = ['not in', ['Suspense Account - Unaccounted Cash - VAC', 'Cash - VAC', 'Debtors - VAC', 'Creditors - VAC']];
-    if (vt === 'Payment' || vt === 'Receipt' || vt === 'Contra') {
-      f.account_type = ['in', ['Cash', 'Bank']];
+    if (vt === 'Payment' || vt === 'Receipt' || vt === 'Contra'
+        || vt === 'Employee Advance' || vt === 'Interparty Expense') {
+      f.account_type = ['in', ['Cash', 'Bank']];  // drawer only
       f.root_type = 'Asset';
+    } else if (vt === 'Expense') {
+      if (fieldname === 'from_account') { f.account_type = ['in', ['Cash', 'Bank']]; f.root_type = 'Asset'; }
+      else { f.root_type = 'Expense'; }  // to_account = ANY P&L expense head, incl. accounts made later
     } else {
-      f.account_type = ['not in', ['Tax', 'Receivable', 'Payable']];
+      f.account_type = ['not in', ['Tax', 'Receivable', 'Payable']];  // Journal
     }
     return { filters: f };
   }
 
+  // party Link filter: Interparty limits the picker to the configured related parties
+  function fv_party_link_query(d) {
+    if (d.get_value('vtype') === 'Interparty Expense') {
+      var names = (d.cfg.interparty_parties || []).map(function (p) { return p.party; });
+      return { filters: { name: ['in', names.length ? names : ['__none__']] } };
+    }
+    return {};
+  }
+
   function fv_relayout(d) {
     var vt = d.get_value('vtype') || 'Payment';
+    var pr = (vt === 'Payment' || vt === 'Receipt');
     var show = function (fn, on) { d.set_df_property(fn, 'hidden', on ? 0 : 1); };
     d.set_value('party', '');
     d.set_value('party_account', '');
-    if (fv_pt_enabled(d.cfg)) {
+    if (fv_pt_enabled(d.cfg) && pr) {
       var ptf0 = d.fields_dict.party_type;
       if (ptf0 && ptf0.$input) ptf0.$input.val(fv_pt_default(vt));  // DOM now — set_value lands async
       d.set_value('party_type', fv_pt_default(vt));
     }
-    ['party', 'mode', 'from_account', 'to_account'].forEach(function (fn) { show(fn, false); });
+    ['party', 'party_type', 'party_account', 'mode', 'from_account', 'to_account'].forEach(function (fn) { show(fn, false); });
     if (vt === 'Payment') {
       show('party', true); show('mode', true); show('from_account', true);
       d.set_df_property('from_account', 'label', 'Paid from (drawer)');
@@ -151,12 +177,27 @@
       show('from_account', true); show('to_account', true);
       d.set_df_property('from_account', 'label', 'Credit account');
       d.set_df_property('to_account', 'label', 'Debit account');
+    } else if (vt === 'Expense') {
+      show('mode', true); show('from_account', true); show('to_account', true);
+      d.set_df_property('from_account', 'label', 'Paid from (drawer)');
+      d.set_df_property('to_account', 'label', 'Expense head');
+    } else if (vt === 'Employee Advance') {
+      show('party', true); show('mode', true); show('from_account', true);
+      d.set_df_property('party', 'label', 'Employee');
+      d.set_df_property('party', 'options', 'Employee');
+      d.set_df_property('from_account', 'label', 'Paid from (drawer)');
+    } else if (vt === 'Interparty Expense') {
+      show('party', true); show('mode', true); show('from_account', true);
+      d.set_df_property('party', 'label', 'Related party');
+      d.set_df_property('party', 'options', 'Customer');
+      d.set_df_property('from_account', 'label', 'Paid from (drawer)');
     } else {
       show('from_account', true); show('to_account', true);
       d.set_df_property('from_account', 'label', 'From');
       d.set_df_property('to_account', 'label', 'To');
     }
-    fv_party_apply(d);
+    if (pr) fv_party_apply(d);
+    else if (d.fields_dict.party.refresh) d.fields_dict.party.refresh();  // apply new options/get_query
     fv_ref_toggle(d);
     fv_bind_enter(d);
     fv_preview(d);
@@ -165,7 +206,7 @@
   function fv_ref_toggle(d) {
     var vt = d.get_value('vtype') || 'Payment';
     var acct = null;
-    if (vt === 'Payment') acct = d.get_value('from_account');
+    if (vt === 'Payment' || vt === 'Employee Advance' || vt === 'Interparty Expense') acct = d.get_value('from_account');
     else if (vt === 'Receipt') acct = d.get_value('to_account');
     var dt = d.drawerType || {};
     var isBank = acct && dt[acct] === 'Bank';
@@ -223,6 +264,9 @@
     var pacc = d.get_value('party_account') || fv_party_default_acct(d, fv_pt_current(d)) || '(party account)';
     if (vt === 'Payment') return { cr: from || '(drawer)', dr: pacc };
     if (vt === 'Receipt') return { cr: pacc, dr: to || '(drawer)' };
+    if (vt === 'Expense') return { cr: from || '(drawer)', dr: to || '(expense head)' };
+    if (vt === 'Employee Advance') return { cr: from || '(drawer)', dr: (d.cfg.employee_advance_account || 'Employee Advances - VAC') };
+    if (vt === 'Interparty Expense') return { cr: from || '(drawer)', dr: fv_ip_head(d, d.get_value('party')) || '(recoverable head)' };
     return { cr: from || '(from)', dr: to || '(to)' };
   }
 
@@ -266,7 +310,7 @@
   }
 
   function fv_submit(d, cfg) {
-    var vt = (d.get_value('vtype') || '').toLowerCase();
+    var vt = fv_code(d.get_value('vtype'));
     var amt = flt(d.get_value('amount'));
     if (!amt || amt <= 0) { frappe.show_alert({ message: 'Amount must be greater than zero', indicator: 'red' }); return; }
     var payload = { vtype: vt, amount: amt, remark: d.get_value('remark') || '', posting_date: d.get_value('posting_date') || frappe.datetime.get_today(), reference_no: d.get_value('reference_no') || '' };
@@ -289,6 +333,16 @@
           frappe.show_alert({ message: 'Pick the ' + pt + ' account', indicator: 'red' }); return;
         }
       }
+    } else if (vt === 'employee_advance' || vt === 'interparty_expense') {
+      payload.party = d.get_value('party');
+      payload.from_account = d.get_value('from_account');
+      var plabel = (vt === 'employee_advance') ? 'Employee' : 'Related party';
+      if (!payload.party) { frappe.show_alert({ message: plabel + ' is required', indicator: 'red' }); return; }
+      if (!payload.from_account) { frappe.show_alert({ message: 'Drawer is required', indicator: 'red' }); return; }
+    } else if (vt === 'expense') {
+      payload.from_account = d.get_value('from_account'); payload.to_account = d.get_value('to_account');
+      if (!payload.from_account) { frappe.show_alert({ message: 'Drawer is required', indicator: 'red' }); return; }
+      if (!payload.to_account) { frappe.show_alert({ message: 'Expense head is required', indicator: 'red' }); return; }
     } else {
       payload.from_account = d.get_value('from_account'); payload.to_account = d.get_value('to_account');
       if (!payload.from_account || !payload.to_account) { frappe.show_alert({ message: 'Both accounts are required', indicator: 'red' }); return; }
@@ -325,13 +379,13 @@
     var d = new frappe.ui.Dialog({
       title: '⚡ Fast Journal',
       fields: [
-        { fieldname: 'vtype', fieldtype: 'Select', label: 'Type', reqd: 1, options: ['Payment', 'Receipt', 'Contra', 'Journal'].join('\n'), default: 'Payment' },
+        { fieldname: 'vtype', fieldtype: 'Select', label: 'Type', reqd: 1, options: ['Payment', 'Receipt', 'Contra', 'Journal'].concat(cfg.extra_types || []).join('\n'), default: 'Payment' },
         { fieldname: 'party_type', fieldtype: 'Select', label: 'Party type', options: ptNames.join('\n'), default: ptNames.length ? 'Supplier' : '', hidden: 1 },
-        { fieldname: 'party', fieldtype: 'Link', label: 'Supplier', options: 'Supplier' },
+        { fieldname: 'party', fieldtype: 'Link', label: 'Supplier', options: 'Supplier', get_query: function () { return fv_party_link_query(d); } },
         { fieldname: 'party_account', fieldtype: 'Link', label: 'Party account', options: 'Account', hidden: 1, get_query: function () { return fv_party_acct_query(d); } },
         { fieldname: 'mode', fieldtype: 'Select', label: 'Mode (fills drawer)', options: [''].concat(modeNames).join('\n') },
-        { fieldname: 'from_account', fieldtype: 'Link', label: 'From', options: 'Account', get_query: function () { return fv_acct_query(d); } },
-        { fieldname: 'to_account', fieldtype: 'Link', label: 'To', options: 'Account', get_query: function () { return fv_acct_query(d); } },
+        { fieldname: 'from_account', fieldtype: 'Link', label: 'From', options: 'Account', get_query: function () { return fv_acct_query(d, 'from_account'); } },
+        { fieldname: 'to_account', fieldtype: 'Link', label: 'To', options: 'Account', get_query: function () { return fv_acct_query(d, 'to_account'); } },
         { fieldname: 'reference_no', fieldtype: 'Data', label: 'Ref No (UPI / cheque / UTR)', hidden: 1 },
         { fieldname: 'amount', fieldtype: 'Currency', label: 'Amount', reqd: 1 },
         { fieldname: 'remark', fieldtype: 'Data', label: 'Remark (optional)' },
