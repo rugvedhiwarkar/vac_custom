@@ -234,6 +234,29 @@
     });
   }
 
+  /* Party-side account the SERVER will actually use, resolved per party so the
+   * Dr/Cr line shows that party's OWN head (e.g. "Dealerships Payables - VAC")
+   * instead of the generic global default. Cached per (type, party); if the
+   * endpoint is absent on a site it degrades silently to the global default. */
+  function fv_fetch_party_acct(d, pt, party) {
+    if (!pt || !party) return;
+    var key = pt + '::' + party;
+    if (!d.__pacct) d.__pacct = {};
+    if (key in d.__pacct) { fv_preview(d); return; }
+    d.__pacct[key] = null;  // in-flight
+    frappe.call({
+      method: 'fast_voucher_party_account', args: { party_type: pt, party: party },
+      callback: function (r) { d.__pacct[key] = (r && r.message) || false; fv_preview(d); },
+      error: function () { d.__pacct[key] = false; fv_preview(d); }
+    });
+  }
+
+  function fv_party_acct_resolved(d, pt, party) {
+    if (!pt || !party) return null;
+    var v = (d.__pacct || {})[pt + '::' + party];
+    return (v && typeof v === 'string') ? v : null;
+  }
+
   function fv_bind_enter(d) {
     ['party', 'party_account', 'mode', 'from_account', 'to_account', 'reference_no', 'amount', 'remark'].forEach(function (fn) {
       var fd = d.fields_dict[fn];
@@ -265,7 +288,10 @@
   function fv_sides(d) {
     var vt = d.get_value('vtype');
     var from = d.get_value('from_account'), to = d.get_value('to_account');
-    var pacc = d.get_value('party_account') || fv_party_default_acct(d, fv_pt_current(d)) || '(party account)';
+    var pt0 = fv_pt_current(d), pty = d.get_value('party');
+    var pacc = d.get_value('party_account')
+      || fv_party_acct_resolved(d, pt0, pty)
+      || fv_party_default_acct(d, pt0) || '(party account)';
     if (vt === 'Payment') return { cr: from || '(drawer)', dr: pacc };
     if (vt === 'Receipt') return { cr: pacc, dr: to || '(drawer)' };
     if (vt === 'Expense') return { cr: from || '(drawer)', dr: to || '(expense head)' };
@@ -422,7 +448,11 @@
       var fd = d.fields_dict[fn];
       if (fd && fd.$input) fd.$input.on('change', function () { fv_ref_toggle(d); fv_bind_enter(d); fv_fetch_balance(d, d.get_value(fn)); fv_preview(d); });
     });
-    if (d.fields_dict.party.$input) d.fields_dict.party.$input.on('change', function () { fv_ref_toggle(d); fv_bind_enter(d); fv_preview(d); });
+    if (d.fields_dict.party.$input) d.fields_dict.party.$input.on('change', function () {
+      fv_ref_toggle(d); fv_bind_enter(d);
+      fv_fetch_party_acct(d, fv_pt_current(d), d.get_value('party'));  // preview the party's OWN head
+      fv_preview(d);
+    });
     if (d.fields_dict.amount.$input) d.fields_dict.amount.$input.on('change', function () { fv_preview(d); });
     setTimeout(function () {
       if (!d.get_value('vtype')) d.set_value('vtype', 'Payment');
