@@ -572,6 +572,23 @@ function clearSessionFor(wh) {
 
 /* ---------- bootstrap cache ---------- */
 function getBoot() { try { return JSON.parse(LS.vaccount_boot || "null"); } catch (e) { return null; } }
+
+/* The ONLY place a bootstrap payload is stored.
+   Both callers (first pairing and every later refresh) must go through this:
+   when tryPair kept its own copy, a freshly paired phone never adopted the
+   server's warehouse, so WH stayed "" — every counted row was tagged with an
+   empty warehouse, and the moment a later refresh set WH the per-warehouse
+   queue filter hid those rows, the item looked uncounted, got counted twice,
+   and make_recon then refused the whole session as a duplicate. */
+function storeBoot(b) {
+	b = b || {};
+	b.ts = Date.now();
+	/* the server decides the effective warehouse (it validates the request and
+	   falls back to the Stock Settings default) — adopt whatever it used */
+	if (b.warehouse) { WH = b.warehouse; LS.vaccount_wh = WH; }
+	LS.vaccount_boot = JSON.stringify(b);
+	return b;
+}
 function refreshBoot(force) {
 	var boot = getBoot();
 	var fresh = boot && boot.date === today() && (Date.now() - boot.ts < 6 * 3600 * 1000);
@@ -580,13 +597,7 @@ function refreshBoot(force) {
 	return api("/api/method/stock_count_bootstrap", {
 		method: "POST", json: WH ? { warehouse: WH } : {}
 	}).then(function (r) {
-		var b = r.message || {};
-		b.ts = Date.now();
-		/* the server decides the effective warehouse (it validates and falls
-		   back to the Stock Settings default) — adopt whatever it used */
-		if (b.warehouse) { WH = b.warehouse; LS.vaccount_wh = WH; }
-		LS.vaccount_boot = JSON.stringify(b);
-		return b;
+		return storeBoot(r.message || {});
 	}).catch(function (e) {
 		if (e.auth && !boot) throw e;
 		if (!boot) throw e;
@@ -698,7 +709,10 @@ function loadQueue() {
 		var d = today();
 		items.forEach(function (x) {
 			if (x.date !== d) return;                    /* yesterday is history */
-			if ((x.wh || "") !== (WH || "")) return;      /* another location's run */
+			/* a row with no warehouse predates storeBoot() adopting one — treat
+			   it as this location's rather than orphaning it into invisibility,
+			   which is what would make an already-counted item look uncounted */
+			if (x.wh && (x.wh !== (WH || ""))) return;   /* another location's run */
 			q[x.item] = x;
 		});
 		QUEUE = q;
@@ -976,8 +990,7 @@ function tryPair(tok) {
 	var prev = LS.vaccount_token;
 	LS.vaccount_token = tok;
 	return api("/api/method/stock_count_bootstrap", { method: "POST", json: {} }).then(function (r) {
-		var b = r.message || {}; b.ts = Date.now();
-		LS.vaccount_boot = JSON.stringify(b);
+		var b = storeBoot(r.message || {});
 		LS.removeItem("vaccount_token_candidate");
 		return b;
 	}).catch(function (e) {
