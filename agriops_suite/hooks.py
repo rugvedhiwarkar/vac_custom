@@ -255,6 +255,12 @@ fixtures = [
                     # Stock Count Session review: builds the DRAFT Stock
                     # Reconciliation from the counted lines.
                     "Stock Count Session - Review",
+                    # "Counting card" button on the User form: QR + code to
+                    # pair a counter's phone with /count. Self-gating - renders
+                    # only for a Website User holding the Stock Counter role.
+                    # Calls agriops_suite.count.pairing_card (app code, because
+                    # safe_exec cannot import pyqrcode).
+                    "User - Stock Count Card",
                     "Item Product Detail Molecule Fetch",
                     # party-tools counterpart buttons (fixture-ized post-
                     # rename as tracked; call agriops_suite.party.*)
