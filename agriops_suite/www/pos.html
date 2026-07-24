@@ -418,7 +418,12 @@ function api(path, opts) {
 				if (data._server_messages) {
 					try { m = JSON.parse(JSON.parse(data._server_messages)[0]).message || m; } catch (e) { }
 				}
-				throw { notfound: res.status === 404, message: String(m).replace(/<[^>]*>/g, "").slice(0, 220) };
+				/* an absent Server Script surfaces as 417 "Failed to get method",
+				   not 404 (verified against prod 2026-07-24) — both mean
+				   "endpoints not installed on this site" */
+				var absent = res.status === 404 ||
+					(res.status === 417 && String(m).indexOf("Failed to get method") !== -1);
+				throw { notfound: absent, message: String(m).replace(/<[^>]*>/g, "").slice(0, 220) };
 			}
 			return data;
 		});
