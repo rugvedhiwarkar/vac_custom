@@ -206,7 +206,11 @@ input { font: inherit; color: inherit; }
 .pairwrap h1 { font-size: 1.3rem; margin-bottom: 10px; }
 .pairwrap p { color: var(--muted); font-size: .95rem; line-height: 1.55; margin-bottom: 22px; }
 .pairwrap input { width: 100%; border: 2px solid var(--line); border-radius: 12px; padding: 13px; font-size: 1rem; background: #fff; text-align: center; }
+.pairwrap input + input { margin-top: 10px; }
+.pairwrap input:focus { outline: none; border-color: var(--amber); }
 .pairwrap .go { width: 100%; margin-top: 12px; background: var(--amber); color: #fff; border-radius: 12px; padding: 15px; font-size: 1.05rem; font-weight: 800; }
+.pairwrap .go[disabled] { opacity: .6; }
+.hdr .logout { font-size: 1.15rem; }
 .pairerr { color: var(--red); font-weight: 700; font-size: .9rem; margin-top: 12px; min-height: 1.2em; }
 
 #toast {
@@ -240,7 +244,12 @@ input { font: inherit; color: inherit; }
    ============================================================ */
 
 var LS = window.localStorage;
+/* CSRF is seeded from the shell (present when a fresh authenticated page is
+   served) but ensureAuth() is the source of truth — it re-fetches the token so
+   a stale service-worker shell can never leave us thinking we are logged out. */
 var CSRF = (document.querySelector('meta[name="vac-csrf"]') || {}).content || "";
+var AUTHED = false;   // set by ensureAuth()
+var AUTH = null;      // { user, full_name, is_office } for the signed-in counter
 
 /* ============================================================
    Language — English default, Hindi and Marathi available.
@@ -275,16 +284,16 @@ var STR = {
 		t_sent: "Sent ✓", t_saved: "Saved ✓", t_paired: "Linked ✓",
 		t_checknum: "Check the number",
 		t_offline_q: "Offline — it will send when the network is back",
-		e_network: "No network", e_auth: "Link is not valid",
+		e_network: "No network", e_auth: "Please sign in again",
 		e_storage: "This phone cannot save counts offline. Stay online while counting.",
 		confirm_finish: "Send today's count to the office? ({0} items)",
-		pair_h: "VAC Stock Count",
-		pair_p: "This phone needs to be linked to the shop.<br>Scan the QR code from the office,<br>or type the code below.",
-		pair_ph: "Code", pair_go: "Link this phone",
-		pair_bad: "That code is not right",
-		pair_net: "No internet — turn the network on and try again",
-		pair_fail: "Could not link — contact the office",
-		pair_expired: "The link has expired or changed — get a new QR code from the office.",
+		login_h: "VAC Stock Count",
+		login_sub: "Sign in with your Vijay Agro Centre login",
+		login_email: "Email", login_pw: "Password", login_go: "Sign in",
+		login_ing: "Signing in…", login_bad: "Wrong email or password",
+		login_net: "No internet — turn the network on and try again",
+		login_locked: "Too many tries — wait a minute, then try again",
+		logout: "Log out", logout_confirm: "Log out of this phone?", t_bye: "Logged out",
 		lang_title: "Language",
 		wh_title: "Which place are you counting?", wh_change: "change",
 		wh_switch: "Switched to {0}"
@@ -309,16 +318,16 @@ var STR = {
 		t_sent: "भेज दिया ✓", t_saved: "दर्ज हुआ ✓", t_paired: "जुड़ गया ✓",
 		t_checknum: "संख्या जाँचें",
 		t_offline_q: "ऑफ़लाइन — नेटवर्क आने पर भेज दिया जाएगा",
-		e_network: "नेटवर्क नहीं", e_auth: "जोड़ी अमान्य",
+		e_network: "नेटवर्क नहीं", e_auth: "कृपया फिर से साइन इन करें",
 		e_storage: "यह फ़ोन ऑफ़लाइन गिनती सुरक्षित नहीं रख सकता। गिनते समय ऑनलाइन रहें।",
 		confirm_finish: "आज की गिनती ऑफ़िस को भेजें? ({0} चीज़ें)",
-		pair_h: "VAC स्टॉक गिनती",
-		pair_p: "इस फ़ोन को दुकान से जोड़ना है।<br>ऑफ़िस से मिला QR कोड स्कैन करें,<br>या नीचे कोड लिखें।",
-		pair_ph: "कोड", pair_go: "फ़ोन जोड़ें",
-		pair_bad: "कोड ग़लत है",
-		pair_net: "इंटरनेट नहीं — नेटवर्क चालू करके फिर कोशिश करें",
-		pair_fail: "जुड़ नहीं पाया — ऑफ़िस से संपर्क करें",
-		pair_expired: "जोड़ी ख़त्म हो गई या बदल गई — ऑफ़िस से नया QR कोड लें।",
+		login_h: "VAC स्टॉक गिनती",
+		login_sub: "अपने विजय एग्रो सेंटर लॉगिन से साइन इन करें",
+		login_email: "ईमेल", login_pw: "पासवर्ड", login_go: "साइन इन",
+		login_ing: "साइन इन हो रहा है…", login_bad: "ईमेल या पासवर्ड ग़लत है",
+		login_net: "इंटरनेट नहीं — नेटवर्क चालू करके फिर कोशिश करें",
+		login_locked: "बहुत बार कोशिश हुई — एक मिनट रुककर फिर करें",
+		logout: "लॉग आउट", logout_confirm: "इस फ़ोन से लॉग आउट करें?", t_bye: "लॉग आउट हो गया",
 		lang_title: "भाषा",
 		wh_title: "कौन-सी जगह गिन रहे हैं?", wh_change: "बदलें",
 		wh_switch: "{0} पर आ गए"
@@ -343,16 +352,16 @@ var STR = {
 		t_sent: "पाठवले ✓", t_saved: "नोंद झाली ✓", t_paired: "जोडणी झाली ✓",
 		t_checknum: "संख्या तपासा",
 		t_offline_q: "ऑफलाइन — नेटवर्क आल्यावर जाईल",
-		e_network: "नेटवर्क नाही", e_auth: "जोडणी अवैध",
+		e_network: "नेटवर्क नाही", e_auth: "कृपया पुन्हा साइन इन करा",
 		e_storage: "हा फोन ऑफलाइन मोजणी साठवू शकत नाही. मोजताना ऑनलाइन राहा.",
 		confirm_finish: "आजची मोजणी ऑफिसकडे पाठवायची? ({0} वस्तू)",
-		pair_h: "VAC मोजणी",
-		pair_p: "हा फोन दुकानाशी जोडायचा आहे.<br>ऑफिसकडून मिळालेला QR कोड स्कॅन करा,<br>किंवा खालील चौकटीत कोड टाका.",
-		pair_ph: "कोड", pair_go: "फोन जोडा",
-		pair_bad: "कोड चुकीचा आहे",
-		pair_net: "इंटरनेट नाही — नेटवर्क चालू करून पुन्हा प्रयत्न करा",
-		pair_fail: "जोडणी जमली नाही — ऑफिसशी संपर्क करा",
-		pair_expired: "जोडणी संपली आहे किंवा बदलली आहे — ऑफिसकडून नवीन QR कोड घ्या.",
+		login_h: "VAC मोजणी",
+		login_sub: "तुमच्या विजय अ‍ॅग्रो सेंटर लॉगिनने साइन इन करा",
+		login_email: "ईमेल", login_pw: "पासवर्ड", login_go: "साइन इन",
+		login_ing: "साइन इन होत आहे…", login_bad: "ईमेल किंवा पासवर्ड चुकीचा",
+		login_net: "इंटरनेट नाही — नेटवर्क चालू करून पुन्हा प्रयत्न करा",
+		login_locked: "खूप वेळा प्रयत्न झाला — एक मिनिट थांबून पुन्हा करा",
+		logout: "लॉग आउट", logout_confirm: "या फोनवरून लॉग आउट करायचे?", t_bye: "लॉग आउट झाले",
 		lang_title: "भाषा",
 		wh_title: "कोणती जागा मोजताय?", wh_change: "बदला",
 		wh_switch: "{0} वर आलात"
@@ -433,7 +442,7 @@ function setWh(name) {
 	}).then(function () {
 		render();
 	}).catch(function (e) {
-		if (e && e.auth) needPair();
+		if (e && e.auth) needLogin();
 		render();
 	});
 }
@@ -443,8 +452,8 @@ function setLang(code) {
 	LS.vaccount_lang = code;
 	applyLangChrome();
 	closeLang();
-	/* the pairing screen and the main screen are both fully re-rendered */
-	if (!LS.vaccount_token && !CSRF) renderPair("");
+	/* the login screen and the main screen are both fully re-rendered */
+	if (!AUTHED) renderLogin("");
 	else render();
 }
 
@@ -485,12 +494,11 @@ function idbPut(v) { return db().then(function (d) { return new Promise(function
 function idbDel(k) { return db().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction("queue", "readwrite"); t.objectStore("queue").delete(k); t.oncomplete = function () { res(); }; t.onerror = function () { rej(t.error); }; }); }); }
 function idbAll() { return db().then(function (d) { return new Promise(function (res, rej) { var q = d.transaction("queue").objectStore("queue").getAll(); q.onsuccess = function () { res(q.result || []); }; q.onerror = function () { rej(q.error); }; }); }); }
 
-/* ---------- api (paired token OR desk session) ---------- */
+/* ---------- api (session cookie + CSRF) ---------- */
 function api(path, opts) {
 	opts = opts || {};
 	var headers = {};
-	if (LS.vaccount_token) headers["Authorization"] = "token " + LS.vaccount_token;
-	else if (CSRF) headers["X-Frappe-CSRF-Token"] = CSRF;
+	if (CSRF) headers["X-Frappe-CSRF-Token"] = CSRF;
 	var body;
 	if (opts.json) { headers["Content-Type"] = "application/json"; body = JSON.stringify(opts.json); }
 	return fetch(path, {
@@ -613,7 +621,7 @@ function pendingCount(items) {
 }
 function syncNow(finish) {
 	if (syncing || !navigator.onLine) { updateNet(); return Promise.resolve(); }
-	if (!LS.vaccount_token && !CSRF) { return Promise.resolve(); }
+	if (!AUTHED || !CSRF) { return Promise.resolve(); }
 	syncing = true; updateNet();
 	return idbAll().catch(function () {
 		STORAGE_OK = false;
@@ -664,7 +672,7 @@ function syncNow(finish) {
 					});
 					return c;
 				}).catch(function (e) {
-					if (e.auth) { needPair(); throw e; }
+					if (e.auth) { needLogin(); throw e; }
 					if (e.net) throw e;          /* offline — stop, keep the queue */
 					var c = Promise.resolve();
 					rows.forEach(function (q) {
@@ -752,11 +760,13 @@ function render() {
 
 	var h = "";
 	h += '<div class="hdr">';
-	h += '<div class="grow"><div class="ttl">' + esc(T("app")) + '</div><div class="who">' + esc(b.counter || "") + (b.date ? " · " + niceDate(b.date) : "") + '</div></div>';
+	var who = (AUTH && AUTH.full_name) || b.counter || "";
+	h += '<div class="grow"><div class="ttl">' + esc(T("app")) + '</div><div class="who">' + esc(who) + (b.date ? " · " + niceDate(b.date) : "") + '</div></div>';
 	h += '<div class="netdot"></div>';
 	if (pend) h += '<div class="pendbadge">' + pend + '</div>';
 	h += '<button class="langbtn" onclick="openLang()">' + esc(langShort()) + '</button>';
 	h += '<button class="sync" onclick="onSync()">⟳</button>';
+	h += '<button class="langbtn logout" title="' + esc(T("logout")) + '" onclick="doLogout()">⏻</button>';
 	h += '</div>';
 	h += '<div class="offbar" id="offbar" style="display:none">' + esc(T("offline_bar")) + '</div>';
 	if (!STORAGE_OK) h += '<div class="offbar warn">' + esc(T("e_storage")) + '</div>';
@@ -976,78 +986,111 @@ function onFinish() {
 	});
 }
 
-/* ---------- pairing ---------- */
-function checkPairFromHash() {
-	var m = (location.hash || "").match(/[#&]pair=([^&]+)/);
-	if (m) {
-		LS.vaccount_token_candidate = decodeURIComponent(m[1]).trim();
-		history.replaceState(null, "", location.pathname);
+/* ---------- authentication (email + password) ----------
+   The counter signs in with their own ERPNext login. /api/method/login sets a
+   session cookie (same-origin); the CSRF token every later POST needs is then
+   fetched from agriops_suite.count.csrf, NOT read from the page shell — the
+   service worker caches that shell and it would go stale after a login. The
+   role the account holds is what scopes it: a Website User with only Stock
+   Counter is counting-only (403 on the rest of the desk); a System User gets a
+   full desk session, so counting-only staff should be Website Users. */
+function ensureAuth() {
+	if (!navigator.onLine) {
+		/* offline: trust the last known state; a queued sync re-checks on reconnect */
+		AUTHED = LS.vaccount_authed === "1";
+		return Promise.resolve(AUTHED);
 	}
+	return fetch("/api/method/agriops_suite.count.csrf", { credentials: "same-origin" })
+		.then(function (r) { return r.ok ? r.json() : null; })
+		.then(function (j) {
+			var m = j && j.message;
+			if (m && m.csrf_token) {
+				CSRF = m.csrf_token; AUTH = m; AUTHED = true;
+				LS.vaccount_authed = "1";
+				return true;
+			}
+			AUTHED = false; LS.removeItem("vaccount_authed");
+			return false;
+		})
+		.catch(function () { AUTHED = LS.vaccount_authed === "1"; return AUTHED; });
 }
-function tryPair(tok) {
-	tok = (tok || "").trim();
-	if (!tok || tok.indexOf(":") < 1) return Promise.reject({ message: T("pair_bad") });
-	var prev = LS.vaccount_token;
-	LS.vaccount_token = tok;
-	return api("/api/method/stock_count_bootstrap", { method: "POST", json: {} }).then(function (r) {
-		var b = storeBoot(r.message || {});
-		LS.removeItem("vaccount_token_candidate");
-		return b;
-	}).catch(function (e) {
-		if (prev) LS.vaccount_token = prev; else LS.removeItem("vaccount_token");
-		throw e.net ? { message: T("pair_net") } : { message: T("pair_fail") };
-	});
+
+function needLogin() {
+	AUTHED = false; CSRF = ""; LS.removeItem("vaccount_authed");
+	renderLogin(T("e_auth"));
 }
-function needPair() { renderPair(T("pair_expired")); }
-function renderPair(err) {
+
+function renderLogin(err) {
 	var langs = "";
 	LANGS.forEach(function (l) {
 		langs += '<button class="' + (l.code === LANG ? "on" : "") + '" onclick="setLang(\'' + l.code + '\')">' + esc(l.label) + '</button>';
 	});
 	$id("app").innerHTML =
 		'<div class="pairwrap"><div class="logo">✓</div>' +
-		'<h1>' + esc(T("pair_h")) + '</h1>' +
+		'<h1>' + esc(T("login_h")) + '</h1>' +
 		'<div class="langrow">' + langs + '</div>' +
-		'<p>' + T("pair_p") + '</p>' +
-		'<input id="ptok" type="text" placeholder="' + esc(T("pair_ph")) + '" autocapitalize="off" autocorrect="off" spellcheck="false">' +
-		'<button class="go" onclick="doPair()">' + esc(T("pair_go")) + '</button>' +
+		'<p>' + esc(T("login_sub")) + '</p>' +
+		'<input id="lem" type="email" inputmode="email" placeholder="' + esc(T("login_email")) + '" autocapitalize="off" autocorrect="off" spellcheck="false">' +
+		'<input id="lpw" type="password" placeholder="' + esc(T("login_pw")) + '">' +
+		'<button class="go" id="lbtn" onclick="doLogin()">' + esc(T("login_go")) + '</button>' +
 		'<div class="pairerr">' + esc(err || "") + '</div></div>';
+	var pw = $id("lpw");
+	if (pw) pw.addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
 }
-function doPair() {
-	var v = ($id("ptok") || {}).value || "";
-	tryPair(v).then(function () { boot(); toast(T("t_paired")); })
-		.catch(function (e) { renderPair(e.message); });
 
+function doLogin() {
+	var email = (($id("lem") || {}).value || "").trim();
+	var pw = ($id("lpw") || {}).value || "";
+	if (!email || !pw) { renderLogin(T("login_bad")); if ($id("lem")) $id("lem").value = email; return; }
+	var btn = $id("lbtn");
+	if (btn) { btn.disabled = true; btn.textContent = T("login_ing"); }
+	fetch("/api/method/login", {
+		method: "POST",
+		headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		body: "usr=" + encodeURIComponent(email) + "&pwd=" + encodeURIComponent(pw),
+		credentials: "same-origin"
+	}).then(function (r) {
+		if (r.status === 429) throw { m: T("login_locked") };
+		if (!r.ok) throw { m: T("login_bad") };   /* 401 / 417 = wrong credentials */
+		return ensureAuth();
+	}).then(function (ok) {
+		if (!ok) throw { m: T("login_bad") };
+		boot();
+	}).catch(function (e) {
+		renderLogin(e && e.m ? e.m : T("login_net"));
+		if ($id("lem")) $id("lem").value = email;
+	});
+}
+
+function doLogout() {
+	if (!confirm(T("logout_confirm"))) return;
+	fetch("/api/method/logout", { credentials: "same-origin" })
+		.catch(function () { }).then(function () {
+			CSRF = ""; AUTHED = false; AUTH = null;
+			LS.removeItem("vaccount_authed");
+			toast(T("t_bye"));
+			renderLogin("");
+		});
 }
 
 /* ---------- boot ---------- */
 function boot() {
 	applyLangChrome();
-	checkPairFromHash();
-	var cand = LS.vaccount_token_candidate;
-	if (cand) {
-		tryPair(cand).then(function () { boot(); toast(T("t_paired")); })
-			.catch(function (e) { renderPair(e.message); });
-
-		return;
-	}
-	if (!LS.vaccount_token && !CSRF) { renderPair(""); return; }
-
-	loadQueue().then(function () {
-		render();
-		return refreshBoot(false);
-	}).then(function () {
-		render();
-		syncNow(false);
-	}).catch(function (e) {
-		if (e && e.auth) needPair();
-		else if (e && e.message) toast(e.message);
+	ensureAuth().then(function (authed) {
+		if (!authed) { renderLogin(""); return; }
+		loadQueue().then(function () {
+			render();
+			return refreshBoot(false);
+		}).then(function () {
+			render();
+			syncNow(false);
+		}).catch(function (e) {
+			if (e && e.auth) needLogin();
+			else if (e && e.message) toast(e.message);
+		});
 	});
 }
 
-window.addEventListener("hashchange", function () {
-	if ((location.hash || "").indexOf("pair=") >= 0) boot();
-});
 window.addEventListener("online", function () { updateNet(); syncNow(false); });
 window.addEventListener("offline", updateNet);
 document.addEventListener("visibilitychange", function () { if (!document.hidden) syncNow(false); });
